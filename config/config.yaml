@@ -1,0 +1,81 @@
+train:
+  experiment_name: "something"
+
+  # Model
+  model:
+    name: "vae"
+    params:
+      image_size: 784
+      h_dim: 400
+      z_dim: 20
+
+  # Dataset
+  dataset:
+    name: "mnist"
+    params:
+      root: "data"
+      train: True
+      # split: "train"
+      download: True
+    transforms:
+      # resize:
+      #   params:
+      #     size: [224, 224]
+
+      to_tensor:
+        params: ~
+    target_transforms:
+      resize:
+        params:
+          size: [224, 224]
+
+  # Losses
+  losses:
+    reconstruction_loss:
+      type: binary_cross_entropy
+      weight: 1.0
+      params: ~
+
+    kl_divergence_loss:
+      type: KLDivLoss
+      weight: 1.0
+      params: ~
+
+  # Optimizer
+  opt_params:
+    lr_default: 1e-3
+    wd_default: 1e-4
+    momentum: ~
+    lr_list:  ~
+    group_keys: ~
+    wd_list:  ~
+
+  opt_name: "adam"
+  scheduler_name: "constant"
+
+  # Runner
+  num_epoch: 15
+  max_iter: ~
+  log_iter: ~
+  eval_iter: ~
+  runner_name: runner
+
+  # Dataloader
+  batch_size: 128
+  num_workers: 4
+  drop_last: True
+
+  # Logger
+  use_tensorboard: True
+  tensorboard_folder:
+  log_folder: ~
+  model_folder: ~
+
+val:
+  # Dataset
+  dataset:
+    name: "something"
+    params: ~
+
+test:
+  need_test: False
