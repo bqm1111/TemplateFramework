@@ -30,7 +30,7 @@ class BaseRunner():
             self.model = nn.DataParallel(self.model)
 
 
-class Runner(BaseRunner):
+class VAERunner(BaseRunner):
     def __init__(self, model, optimizer, losses, train_loader, val_loader, scheduler):
         super().__init__(model, optimizer, losses, train_loader, val_loader, scheduler)
         self.exist_status = ["train", "val", "test"]

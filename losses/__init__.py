@@ -3,7 +3,7 @@ from .losses import CustomLoss, KLDivergenceLoss, BinaryCrossEntropy
 import torch.nn.functional as F
 AVAI_LOSS = {'ce': nn.CrossEntropyLoss, 'multi_label_soft_margin': nn.MultiLabelSoftMarginLoss,
              'test_custom': CustomLoss, 'mse': nn.MSELoss,
-             'binary_cross_entropy': BinaryCrossEntropy,
+             'binary_cross_entropy': nn.BCELoss,
              'KLDivLoss': KLDivergenceLoss}
 
 

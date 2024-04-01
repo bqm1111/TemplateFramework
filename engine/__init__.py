@@ -1,7 +1,7 @@
 # copyright ziqi-jin
 import torch
 from models.model import VAE
-from .runner import BaseRunner, Runner
+from .runner import BaseRunner, VAERunner
 
 # from .optimizer import BaseOptimizer
 from .scheduler import WarmupMultiStepLR
@@ -15,7 +15,7 @@ AVAI_OPT = {
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
 }
-AVAI_RUNNER = {"base_runner": BaseRunner, "runner": Runner}
+AVAI_RUNNER = {"base_runner": BaseRunner, "runner": VAERunner}
 
 
 def get_model(model_name, **kwargs):

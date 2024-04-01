@@ -34,7 +34,8 @@ train:
     reconstruction_loss:
       type: binary_cross_entropy
       weight: 1.0
-      params: ~
+      params: 
+        reduction: "sum"
 
     kl_divergence_loss:
       type: KLDivLoss
