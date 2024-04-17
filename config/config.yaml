@@ -69,7 +69,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_folder: ~
+  log_dir: ~
   model_folder: ~
 
 val:

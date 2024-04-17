@@ -4,6 +4,10 @@ import torch
 from torch.utils.data import Dataset
 import os
 import torchvision
+from PIL import Image
+from utils.logger import get_root_logger
+
+logger = get_root_logger()
 
 
 class DepthDataset(Dataset):
@@ -29,18 +33,19 @@ class DepthDataset(Dataset):
             self.all_index = [int(idx) for idx in f.readlines()]
 
     def __getitem__(self, index):
-        rgb = self._open_image(os.path.join(
-            self.rgb_path, str(index) + ".jpg"))
+        # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
+        rgb = Image.open(os.path.join(self.rgb_path, str(index) + ".jpg"))
+        raw_depth = np.load(os.path.join(
+            self.raw_depth_path, str(index) + ".npy"))
+        # Transform image
         if self.transforms is not None:
-            for transform in self.transforms:
-                rgb = transform(rgb)
-
+            rgb = self.transforms(rgb)
+            # raw_depth = self.transforms(raw_depth)
+        # Return output as a dictionary
+        output = {"rgb": None, "depth": None, "depth_anything": None}
+        if rgb is None:
+            logger.error("Receive NoneType")
         return rgb
-
-    @staticmethod
-    def _open_image(filepath, mode=cv2.IMREAD_COLOR, dtype=None):
-        img = np.array(cv2.imread(filepath, mode), dtype=dtype)
-        return img
 
     def __len__(self):
         return len(self.all_index)

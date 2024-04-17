@@ -8,6 +8,8 @@ AVAI_LOSS = {'ce': nn.CrossEntropyLoss, 'multi_label_soft_margin': nn.MultiLabel
 
 
 def get_losses(losses):
+    if losses is None:
+        return None
     loss_dict = {}
     for name in losses:
         assert losses[name]['type'] in AVAI_LOSS, print(

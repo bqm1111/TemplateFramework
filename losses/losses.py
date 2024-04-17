@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
+from utils.misc import get_grad_norm_
 
 
 class CustomLoss(nn.Module):
@@ -20,9 +21,12 @@ class KLDivergenceLoss(nn.Module):
     def forward(self, log_var, mu):
         return (- 0.5 * torch.sum(1 + log_var - mu.pow(2) - log_var.exp()))
 
+
 class BinaryCrossEntropy(nn.Module):
     def __init__(self) -> None:
         super().__init__()
-    
+
     def forward(self, x_reconst, x):
         return F.binary_cross_entropy(x_reconst, x, size_average=False)
+
+

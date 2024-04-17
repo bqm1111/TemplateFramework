@@ -1,27 +1,17 @@
 import torchvision.transforms as T
 import torch.nn as nn
-from omegaconf.dictconfig import DictConfig
-
-ALL_TRANSFORM = {"resize": T.Resize, "to_tensor": T.ToTensor}
+from torchvision.transforms.functional import InterpolationMode, _interpolation_modes_from_int
 
 
-def get_transform(transforms: DictConfig):
-    transform_list = []
-    for name in transforms.keys():
-        assert name in ALL_TRANSFORM, (
-            "{T_name} is not supported transform, please implement it and add it to "
-            "ALL_TRANSFORM first.".format(T_name=name)
-        )
-        if transforms[name].params is not None:
-            transform_list.append(ALL_TRANSFORM[name](**transforms[name].params))
-        else:
-            transform_list.append(ALL_TRANSFORM[name]())
-    return T.Compose(transform_list)
+class CustomRandomResizedCrop(T.RandomResizedCrop):
+    def __init__(self, size, scale=..., ratio=(3.0 / 4.0, 4.0 / 3.0), interpolation=InterpolationMode.BILINEAR, interp_mode=2):
+        super().__init__(size, scale, ratio, interpolation)
+        self.interpolation = _interpolation_modes_from_int(interp_mode)
 
 
 class CustomTransform(nn.Module):
-    def __init__(self):
-        pass
+    def __init__(self) -> None:
+        super().__init__()
 
-    def forward(self):
+    def forward(self, x):
         pass

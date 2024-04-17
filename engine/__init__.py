@@ -1,21 +1,23 @@
 # copyright ziqi-jin
 import torch
-from models.model import VAE
-from .runner import BaseRunner, VAERunner
+from models.vae import VAE
+from models.vanilla_mae import mae_vit_base_patch16, mae_vit_huge_patch14, mae_vit_large_patch16
+from .runner import BaseRunner, VAERunner, MAERunner
 
 # from .optimizer import BaseOptimizer
 from .scheduler import WarmupMultiStepLR
 
 AVAI_SCH = ["single_step", "multi_step",
             "warmup_multi_step", "cosine", "linear", "constant"]
-AVAI_MODEL = {"vae": VAE}
+AVAI_MODEL = {"vae": VAE, "mae_vit_base_patch16": mae_vit_base_patch16, "mae_vit_huge_patch14": mae_vit_huge_patch14,
+              "mae_vit_large_patch16": mae_vit_large_patch16}
 # AVAI_OPT = {'base_opt': BaseOptimizer, 'sgd': torch.optim.SGD, 'adam': torch.optim.Adam}
 AVAI_OPT = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
 }
-AVAI_RUNNER = {"base_runner": BaseRunner, "runner": VAERunner}
+AVAI_RUNNER = {"base_runner": BaseRunner, "vae": VAERunner, "mae": MAERunner}
 
 
 def get_model(model_name, **kwargs):

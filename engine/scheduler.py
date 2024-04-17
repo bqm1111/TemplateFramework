@@ -6,6 +6,8 @@ from typing import List
 
 import torch
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.optimizer import Optimizer
+
 
 
 class WarmupMultiStepLR(_LRScheduler):
