@@ -32,9 +32,9 @@ train:
       norm_pix_loss: False
   # Dataset
   dataset:
-    name: "nyuv2"
+    name: "sunrgbd"
     params:
-      root: "data/NYUDepthv2"
+      root: "data/sunrgbd/sunrgbd_trainval"
       split: "train"
     transforms:
       crop_border:
@@ -52,8 +52,12 @@ train:
         params: ~
       normalize:
         params:
-          mean: [0.4184, 0.3545, 0.3333]
-          std: [0.2993, 0.2884, 0.2945]
+          # sunrgbd
+          mean: [0.4960, 0.4686, 0.4415]
+          std: [0.2781, 0.2865, 0.2917]
+          # nyuv2
+          # mean: [0.4184, 0.3545, 0.3333]
+          # std: [0.2993, 0.2884, 0.2945]
     target_transforms:
       resize:
         params:

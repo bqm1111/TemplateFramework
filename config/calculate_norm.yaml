@@ -4,15 +4,15 @@ num_workers: 4
 drop_last: True
 # Dataset
 dataset:
-  name: "nyuv2"
+  name: "sunrgbd"
   params:
-    root: "data/NYUDepthv2"
+    root: "data/sunrgbd/sunrgbd_trainval"
     split: "train"
   transforms:
-    crop_border:
-      params:
-        width: 32
-        height: 32
+    # crop_border:
+    #   params:
+    #     width: 32
+    #     height: 32
     to_tensor:
       params: ~
   target_transforms: ~

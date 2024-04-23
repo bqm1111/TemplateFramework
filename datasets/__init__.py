@@ -1,6 +1,6 @@
 from .transforms import CustomRandomResizedCrop, CropBorder
 from omegaconf.dictconfig import DictConfig
-from .datasets import DepthDataset, MNIST
+from .datasets import DepthDataset, MNIST, NYUv2Dataset, SunRGBDDataset
 from utils.logger import get_root_logger
 import torchvision.transforms as T
 
@@ -14,8 +14,8 @@ ALL_TRANSFORM = {
 }
 
 ALL_DATASETS = {
-    "nyuv2": DepthDataset,
-    # "sunrgbd": SunRGBDDataset,
+    "nyuv2": NYUv2Dataset,
+    "sunrgbd": SunRGBDDataset,
     "mnist": MNIST,
 }
 logger = get_root_logger()
@@ -27,7 +27,8 @@ def get_dataset(cfg):
     name = cfg.name
     if name not in ALL_DATASETS:
         logger.warning(
-            "{name} is not supported, please implement it first.".format(name=name)
+            "{name} is not supported, please implement it first.".format(
+                name=name)
         )
         return None
 
@@ -47,7 +48,8 @@ def get_transform(transforms: DictConfig):
             "ALL_TRANSFORM first.".format(T_name=name)
         )
         if transforms[name].params is not None:
-            transform_list.append(ALL_TRANSFORM[name](**transforms[name].params))
+            transform_list.append(
+                ALL_TRANSFORM[name](**transforms[name].params))
         else:
             transform_list.append(ALL_TRANSFORM[name]())
     return T.Compose(transform_list)
