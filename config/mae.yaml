@@ -2,6 +2,8 @@ train:
   experiment_name: "mae"
   # Runner
   num_epochs: 4000
+  start_saving_epoch: 1000
+  saving_interval: 40
   max_iter: ~
   log_iter: ~
   eval_iter: ~
@@ -50,8 +52,8 @@ train:
         params: ~
       normalize:
         params:
-          mean: [0.4939, 0.4259, 0.4036]
-          std: [0.2896, 0.2954, 0.3072]
+          mean: [0.4184, 0.3545, 0.3333]
+          std: [0.2993, 0.2884, 0.2945]
     target_transforms:
       resize:
         params:

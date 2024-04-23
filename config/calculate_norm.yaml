@@ -9,6 +9,10 @@ dataset:
     root: "data/NYUDepthv2"
     split: "train"
   transforms:
+    crop_border:
+      params:
+        width: 32
+        height: 32
     to_tensor:
       params: ~
   target_transforms: ~
