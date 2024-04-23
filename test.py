@@ -13,23 +13,18 @@ import numpy as np
 from copy import deepcopy
 from utils.logger import get_root_logger
 import torch.nn as nn
+from timm.optim import optim_factory
 
 logger = get_root_logger()
 config = OmegaConf.load("config/config.yaml")
 
 
 training_data = datasets.FashionMNIST(
-    root="data",
-    train=True,
-    download=True,
-    transform=ToTensor()
+    root="data", train=True, download=True, transform=ToTensor()
 )
 
 test_data = datasets.FashionMNIST(
-    root="data",
-    train=False,
-    download=True,
-    transform=ToTensor()
+    root="data", train=False, download=True, transform=ToTensor()
 )
 
 train_dataloader = DataLoader(training_data, batch_size=64)
@@ -41,7 +36,7 @@ class NeuralNetwork(nn.Module):
         super().__init__()
         self.flatten = nn.Flatten()
         self.linear_relu_stack = nn.Sequential(
-            nn.Linear(28*28, 512),
+            nn.Linear(28 * 28, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -93,18 +88,22 @@ def test_loop(dataloader, model, loss_fn):
     test_loss /= num_batches
     correct /= size
     print(
-        f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
+        f"Test Error: \n Accuracy: {(100*correct):>0.1f}%, Avg loss: {test_loss:>8f} \n"
+    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     model = NeuralNetwork()
     learning_rate = 1e-3
     batch_size = 64
     epochs = 5
 
     loss_fn = nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
-
+    param_groups = optim_factory.param_groups_weight_decay(model, 1)
+    optimizer = torch.optim.SGD(param_groups, lr=learning_rate)
+    for name in model.parameters():
+        print(name)
+    print(param_groups[0].keys())
     # for param in optimizer.param_groups:
     #     if param.keys() == "params":
     #         print(param.keys())

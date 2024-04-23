@@ -1,17 +1,22 @@
-from .transforms import CustomRandomResizedCrop
+from .transforms import CustomRandomResizedCrop, CropBorder
 from omegaconf.dictconfig import DictConfig
 from .datasets import DepthDataset, MNIST
 from utils.logger import get_root_logger
 import torchvision.transforms as T
-ALL_TRANSFORM = {"resize": T.Resize, "to_tensor": T.ToTensor,
-                 "RandomResizedCrop": CustomRandomResizedCrop,
-                 "RandomHorizontalFlip": T.RandomHorizontalFlip,
-                 "normalize": T.Normalize}
+
+ALL_TRANSFORM = {
+    "crop_border": CropBorder,
+    "resize": T.Resize,
+    "to_tensor": T.ToTensor,
+    "RandomResizedCrop": CustomRandomResizedCrop,
+    "RandomHorizontalFlip": T.RandomHorizontalFlip,
+    "normalize": T.Normalize,
+}
 
 ALL_DATASETS = {
     "nyuv2": DepthDataset,
     # "sunrgbd": SunRGBDDataset,
-    "mnist": MNIST
+    "mnist": MNIST,
 }
 logger = get_root_logger()
 
@@ -21,8 +26,9 @@ def get_dataset(cfg):
         return None
     name = cfg.name
     if name not in ALL_DATASETS:
-        logger.warning("{name} is not supported, please implement it first.".format(
-            name=name))
+        logger.warning(
+            "{name} is not supported, please implement it first.".format(name=name)
+        )
         return None
 
     transform = get_transform(cfg.transforms)
@@ -33,14 +39,15 @@ def get_dataset(cfg):
 
 def get_transform(transforms: DictConfig):
     transform_list = []
+    if transforms is None:
+        return None
     for name in transforms.keys():
         assert name in ALL_TRANSFORM, (
             "{T_name} is not supported transform, please implement it and add it to "
             "ALL_TRANSFORM first.".format(T_name=name)
         )
         if transforms[name].params is not None:
-            transform_list.append(
-                ALL_TRANSFORM[name](**transforms[name].params))
+            transform_list.append(ALL_TRANSFORM[name](**transforms[name].params))
         else:
             transform_list.append(ALL_TRANSFORM[name]())
     return T.Compose(transform_list)

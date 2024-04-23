@@ -1,16 +1,30 @@
 # copyright ziqi-jin
 import torch
 from models.vae import VAE
-from models.vanilla_mae import mae_vit_base_patch16, mae_vit_huge_patch14, mae_vit_large_patch16
+from models.vanilla_mae import (
+    mae_vit_base_patch16,
+    mae_vit_huge_patch14,
+    mae_vit_large_patch16,
+)
 from .runner import BaseRunner, VAERunner, MAERunner
 
 # from .optimizer import BaseOptimizer
 from .scheduler import WarmupMultiStepLR
 
-AVAI_SCH = ["single_step", "multi_step",
-            "warmup_multi_step", "cosine", "linear", "constant"]
-AVAI_MODEL = {"vae": VAE, "mae_vit_base_patch16": mae_vit_base_patch16, "mae_vit_huge_patch14": mae_vit_huge_patch14,
-              "mae_vit_large_patch16": mae_vit_large_patch16}
+AVAI_SCH = [
+    "single_step",
+    "multi_step",
+    "warmup_multi_step",
+    "cosine",
+    "linear",
+    "constant",
+]
+AVAI_MODEL = {
+    "vae": VAE,
+    "mae_vit_base_patch16": mae_vit_base_patch16,
+    "mae_vit_huge_patch14": mae_vit_huge_patch14,
+    "mae_vit_large_patch16": mae_vit_large_patch16,
+}
 # AVAI_OPT = {'base_opt': BaseOptimizer, 'sgd': torch.optim.SGD, 'adam': torch.optim.Adam}
 AVAI_OPT = {
     "sgd": torch.optim.SGD,
@@ -124,15 +138,12 @@ def get_scheduler(
     elif lr_scheduler == "linear":
 
         def lambda_rule(epoch):
-            lr_l = 1.0 - max(0, epoch - n_epochs_init) / \
-                float(n_epochs_decay + 1)
+            lr_l = 1.0 - max(0, epoch - n_epochs_init) / float(n_epochs_decay + 1)
             return lr_l
 
-        scheduler = torch.optim.lr_scheduler.LambdaLR(
-            optimizer, lr_lambda=lambda_rule)
+        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
     elif lr_scheduler == "constant":
-        scheduler = torch.optim.lr_scheduler.ConstantLR(
-            optimizer, factor=warmup_factor)
+        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=warmup_factor)
     return scheduler
 
 
@@ -145,20 +156,24 @@ def get_opt_params(model, lr_list, group_keys, wd_list):
     :param group_keys: list of list, according to the sub list to divide params to different groups
     :return: list of dict
     """
+    for name, value in model.named_parameters():
+        print("parameter named: ", name)
+
     if lr_list is not None:
         assert len(lr_list) == len(
             group_keys
         ), "lr_list should has the same length as group_keys"
         assert len(lr_list) == len(
-            wd_list), "lr_list should has the same length as wd_list"
+            wd_list
+        ), "lr_list should has the same length as wd_list"
         params_group = [[] for _ in range(len(lr_list))]
         for name, value in model.named_parameters():
+            print("parameter named: ", name)
             for index, g_keys in enumerate(group_keys):
                 for g_key in g_keys:
                     if g_key in name:
                         params_group[index].append(value)
         return [
-            {"params": params_group[i], "lr": lr_list[i],
-                "weight_decay": wd_list[i]}
+            {"params": params_group[i], "lr": lr_list[i], "weight_decay": wd_list[i]}
             for i in range(len(lr_list))
         ]

@@ -11,7 +11,7 @@ class VAE(nn.Module):
         self.fc3 = nn.Linear(h_dim, z_dim)
         self.fc4 = nn.Linear(z_dim, h_dim)
         self.fc5 = nn.Linear(h_dim, image_size)
-        
+
     def encode(self, x):
         h = F.relu(self.fc1(x))
         return self.fc2(h), self.fc3(h)

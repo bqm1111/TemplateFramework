@@ -204,7 +204,9 @@ class MAERunner(BaseRunner):
                 log_writer=self.log_writer,
                 cfg=cfg
             )
-            if cfg.output_dir and (epoch % 20 == 0 or epoch + 1 == cfg.epochs):
+            if not os.path.exists(cfg.output_dir):
+                os.makedirs(cfg.output_dir)
+            if cfg.output_dir and (epoch % 20 == 0 or epoch + 1 == cfg.num_epochs):
                 misc.save_model(
                     args=cfg, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)

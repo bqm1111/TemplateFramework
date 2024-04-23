@@ -4,11 +4,14 @@ from torch.utils.data import DataLoader
 from datasets import get_dataset
 from losses import get_losses
 from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_runner
-import cv2
+from timm.optim import optim_factory
+from utils import misc
+from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+import torch
 
 parser = argparse.ArgumentParser()
 
-
+#
 if __name__ == "__main__":
     config = OmegaConf.load("config/mae.yaml")
 
@@ -19,7 +22,7 @@ if __name__ == "__main__":
     train_dataset = get_dataset(train_cfg.dataset)
     train_loader = DataLoader(
         train_dataset,
-        batch_size=1,
+        batch_size=train_cfg.batch_size,
         shuffle=True,
         num_workers=train_cfg.num_workers,
         drop_last=train_cfg.drop_last,
@@ -40,17 +43,18 @@ if __name__ == "__main__":
     losses = get_losses(losses=train_cfg.losses)
 
     # according the model name to get the adapted model
-    model = get_model(model_name=train_cfg.model.name,
-                      **train_cfg.model.params)
-    opt_params = get_opt_params(
-        model,
-        lr_list=train_cfg.opt_params.lr_list,
-        group_keys=None,
-        wd_list=train_cfg.opt_params.wd_list,
-    )
+    model = get_model(model_name=train_cfg.model.name, **train_cfg.model.params)
+    # opt_params = get_opt_params(
+    #     model,
+    #     lr_list=train_cfg.opt_params.lr_list,
+    #     group_keys=None,
+    #     wd_list=train_cfg.opt_params.wd_list,
+    # )
+    opt_params = optim_factory.param_groups_weight_decay(model, train_cfg.weight_decay)
+
     optimizer = get_optimizer(
         opt_name=train_cfg.opt_name,
-        params=model.parameters(),
+        params=opt_params,
         lr=train_cfg.opt_params.lr_default,
         momentum=train_cfg.opt_params.momentum,
         weight_decay=train_cfg.opt_params.wd_default,
@@ -58,6 +62,7 @@ if __name__ == "__main__":
     scheduler = get_scheduler(
         optimizer=optimizer, lr_scheduler=train_cfg.scheduler_name
     )
+    misc.load_model(train_cfg, model, optimizer=optimizer, loss_scaler=NativeScaler())
     runner = get_runner(train_cfg.runner_name)(
         model, optimizer, losses, scheduler, train_loader, val_loader
     )

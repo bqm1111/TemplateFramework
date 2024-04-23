@@ -1,0 +1,14 @@
+# Dataloader
+batch_size: 64
+num_workers: 4
+drop_last: True
+# Dataset
+dataset:
+  name: "nyuv2"
+  params:
+    root: "data/NYUDepthv2"
+    split: "train"
+  transforms:
+    to_tensor:
+      params: ~
+  target_transforms: ~

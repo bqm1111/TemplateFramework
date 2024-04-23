@@ -18,25 +18,20 @@ class DepthDataset(Dataset):
         self.rgb_path = os.path.join(self.root_dir, "RGB")
         self.depth_path = os.path.join(self.root_dir, "Depth")
         self.label_path = os.path.join(self.root_dir, "Label")
-        self.depth_unfilled_path = os.path.join(
-            self.root_dir, "Depth_unfilled")
+        self.depth_unfilled_path = os.path.join(self.root_dir, "Depth_unfilled")
         self.raw_depth_path = os.path.join(self.root_dir, "rawDepths")
-        self.raw_depth_filled_path = os.path.join(
-            self.root_dir, "rawDepths_filled")
+        self.raw_depth_filled_path = os.path.join(self.root_dir, "rawDepths_filled")
         all_index_file = os.path.join(self.root_dir, split + "_mod.txt")
-
         if not os.path.exists(all_index_file):
-            raise Exception(
-                f"Split index file does not exist {all_index_file}")
+            raise Exception(f"Split index file does not exist {all_index_file}")
 
         with open(all_index_file, "r") as f:
             self.all_index = [int(idx) for idx in f.readlines()]
 
     def __getitem__(self, index):
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
-        rgb = Image.open(os.path.join(self.rgb_path, str(index) + ".jpg"))
-        raw_depth = np.load(os.path.join(
-            self.raw_depth_path, str(index) + ".npy"))
+        rgb = Image.open(os.path.join(self.rgb_path, str(index) + ".jpg")).convert("RGB")
+        raw_depth = np.load(os.path.join(self.raw_depth_path, str(index) + ".npy"))
         # Transform image
         if self.transforms is not None:
             rgb = self.transforms(rgb)
