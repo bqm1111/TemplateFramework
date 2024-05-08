@@ -1,12 +1,12 @@
 # Dataloader
-batch_size: 64
+batch_size: 1
 num_workers: 4
 drop_last: True
 # Dataset
 dataset:
   name: "sunrgbd"
   params:
-    root: "data/sunrgbd/sunrgbd_trainval"
+    root: "data/sunrgbd_trainval"
     split: "train"
   transforms:
     # crop_border:

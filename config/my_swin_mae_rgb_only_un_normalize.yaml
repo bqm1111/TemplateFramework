@@ -1,0 +1,100 @@
+train:
+  experiment_name: "mae"
+  # Runner
+  num_epochs: 4000
+  start_saving_epoch: 1000
+  saving_interval: 40
+  max_iter: ~
+  log_iter: ~
+  eval_iter: ~
+  runner_name: mae
+  distributed: False
+  device: cuda
+  resume: ~
+
+  # Dataloader
+  batch_size: 128
+  num_workers: 4
+  drop_last: True
+
+  # Hyperparameter
+  mask_ratio: 0.75
+  accum_iter: 4
+  warmup_epochs: 40
+  lr: 1.5e-04
+  min_lr: 1.0e-05
+  weight_decay: 0.01
+
+  # Model
+  model:
+    name: "my_swin_mae"
+    params:
+      norm_pix_loss: False
+  # Dataset
+  dataset:
+    name: "sunrgbd"
+    params:
+      root: "data/sunrgbd_trainval"
+      split: "train"
+    transforms:
+      # crop_border:
+      #   params:
+      #     width: 32
+      #     height: 32
+      # resize:
+      #   params:
+      #     size: [224, 224]
+      RandomResizedCrop:
+        params:
+          size: [224, 224]
+          scale: [0.2, 1.0]
+          interp_mode: 3
+      RandomHorizontalFlip:
+        params: ~
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # sunrgbd rgb
+          mean: [0.4960, 0.4686, 0.4415]
+          std: [0.2781, 0.2865, 0.2917]
+          # nyuv2
+          # mean: [0.4184, 0.3545, 0.3333]
+          # std: [0.2993, 0.2884, 0.2945]
+    target_transforms:
+      resize:
+        params:
+          size: [224, 224]
+
+  # Losses
+  losses:
+    ~
+    # loss:
+    #   type: native_scaler
+    #   weight: 1.0
+    #   params: ~
+
+  # Optimizer
+  opt_params:
+    lr_default: 1.5e-04
+    wd_default: 0.01
+    betas: (0.9, 0.95)
+    momentum: ~
+    lr_list: ~
+    group_keys: ~
+    wd_list: ~
+
+  opt_name: "adamw"
+  scheduler_name: "constant"
+  # Logger
+  use_tensorboard: True
+  tensorboard_folder:
+  log_dir: log/my_swin_mae_rgb_unnormalized
+  output_dir: output_dir/my_swin_mae_rgb_unnormalized
+  model_folder: ~
+
+val:
+  # Dataset
+  dataset: ~
+test:
+  need_test: False

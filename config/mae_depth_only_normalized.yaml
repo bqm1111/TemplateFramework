@@ -2,7 +2,7 @@ train:
   experiment_name: "mae"
   # Runner
   num_epochs: 4000
-  start_saving_epoch: 1000
+  start_saving_epoch: 800
   saving_interval: 40
   max_iter: ~
   log_iter: ~
@@ -27,20 +27,16 @@ train:
 
   # Model
   model:
-    name: "mae_vit_base_patch16"
+    name: "swin_mae"
     params:
-      norm_pix_loss: False
+      norm_pix_loss: True
   # Dataset
   dataset:
     name: "sunrgbd"
     params:
-      root: "data/sunrgbd/sunrgbd_trainval"
+      root: "data/sunrgbd_trainval"
       split: "train"
     transforms:
-      crop_border:
-        params:
-          width: 32
-          height: 32
       RandomResizedCrop:
         params:
           size: [224, 224]
@@ -52,9 +48,13 @@ train:
         params: ~
       normalize:
         params:
-          # sunrgbd
-          mean: [0.4960, 0.4686, 0.4415]
-          std: [0.2781, 0.2865, 0.2917]
+          # sunrgbd depth
+          mean: [0.4132, 0.4132, 0.4132]
+          std: [0.2703, 0.2703, 0.2703]
+
+          # # sunrgbd rgb
+          # mean: [0.4960, 0.4686, 0.4415]
+          # std: [0.2781, 0.2865, 0.2917]
           # nyuv2
           # mean: [0.4184, 0.3545, 0.3333]
           # std: [0.2993, 0.2884, 0.2945]
@@ -86,8 +86,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log
-  output_dir: output_dir/baseline
+  log_dir: log/depth_normalized
+  output_dir: output_dir/depth_normalized
   model_folder: ~
 
 val:

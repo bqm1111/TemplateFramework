@@ -38,7 +38,7 @@ class MaskedAutoencoderViT(nn.Module):
         norm_pix_loss=False,
     ):
         super().__init__()
-
+        
         # --------------------------------------------------------------------------
         # MAE encoder specifics
         self.patch_embed = PatchEmbed(img_size, patch_size, in_chans, embed_dim)

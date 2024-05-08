@@ -143,9 +143,10 @@ class MAERunner(BaseRunner):
                     optimizer, data_iter_step / len(data_loader) + epoch, cfg)
 
             samples = samples.to(device, non_blocking=True)
-
+            
             with torch.cuda.amp.autocast():
-                loss, _, _ = model(samples, mask_ratio=cfg.mask_ratio)
+                # loss, _, _ = model(samples, mask_ratio=cfg.mask_ratio)
+                loss, _, _ = model(samples)
 
             loss_value = loss.item()
 
@@ -160,7 +161,7 @@ class MAERunner(BaseRunner):
                 optimizer.zero_grad()
 
             torch.cuda.synchronize()
-
+            
             metric_logger.update(loss=loss_value)
 
             lr = optimizer.param_groups[0]["lr"]

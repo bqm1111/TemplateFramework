@@ -23,6 +23,11 @@ if __name__ == "__main__":
     #     show_pil_image("img", numpy_image)
     #     if cv2.waitKey() == ord('q'):
     #         break
-    img = cv2.imread(
-        "/home/sherlock/Pictures/segmentation/SUNRGBD-001/SUNRGBD/Depth/test_1764.png", 0)
-    print(img)
+    filename = "data/sunrgbd_trainval/depth/000001.png"
+
+    rgb = Image.open(filename)
+    rgb = np.array(rgb)
+    max_rgb = np.max(rgb)
+    cv2.imshow("img", (rgb / max_rgb * 255.0).astype(np.uint8))
+    cv2.waitKey()
+

@@ -9,18 +9,17 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.optimizer import Optimizer
 
 
-
 class WarmupMultiStepLR(_LRScheduler):
     def __init__(
-            self,
-            optimizer: torch.optim.Optimizer,
-            milestones: List[int],
-            gamma: float = 0.1,
-            warmup_factor: float = 0.001,
-            warmup_iters: int = 1000,
-            warmup_method: str = "linear",
-            last_epoch: int = -1,
-            **kwargs,
+        self,
+        optimizer: torch.optim.Optimizer,
+        milestones: List[int],
+        gamma: float = 0.1,
+        warmup_factor: float = 0.001,
+        warmup_iters: int = 1000,
+        warmup_method: str = "linear",
+        last_epoch: int = -1,
+        **kwargs,
     ):
         if not list(milestones) == sorted(milestones):
             raise ValueError(
@@ -51,7 +50,7 @@ class WarmupMultiStepLR(_LRScheduler):
 
 
 def _get_warmup_factor_at_iter(
-        method: str, iter: int, warmup_iters: int, warmup_factor: float
+    method: str, iter: int, warmup_iters: int, warmup_factor: float
 ) -> float:
     """
     Return the learning rate warmup factor at a specific iteration.

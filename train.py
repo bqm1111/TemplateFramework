@@ -10,10 +10,11 @@ from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 import torch
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--config", help="Path to config file")
 
-#
 if __name__ == "__main__":
-    config = OmegaConf.load("config/mae.yaml")
+    args = parser.parse_args()
+    config = OmegaConf.load(args.config)
 
     train_cfg = config.train
     val_cfg = config.val

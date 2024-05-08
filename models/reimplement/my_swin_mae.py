@@ -1,3 +1,4 @@
+from email.utils import decode_rfc2231
 from functools import partial
 
 import torch
@@ -5,13 +6,36 @@ import torch.nn as nn
 import numpy as np
 from einops import rearrange
 
-from .swin_unet import PatchEmbedding, BasicBlock, PatchExpanding, BasicBlockUp
-from .pos_embed import get_2d_sincos_pos_embed
+from models.swin_unet import PatchMerging
+
+from .my_swin import BasicLayer, PatchExpanding, BasicLayer_up, PatchEmbedding
+from models.pos_embed import get_2d_sincos_pos_embed
 
 
-class SwinMAE(nn.Module):
-    """
-    Masked Auto Encoder with Swin Transformer backbone
+class MySwinMAE(nn.Module):
+    r"""Swin Transformer
+        A PyTorch impl of : `Swin Transformer: Hierarchical Vision Transformer using Shifted Windows`  -
+          https://arxiv.org/pdf/2103.14030
+
+    Args:
+        img_size (int | tuple(int)): Input image size. Default 224
+        patch_size (int | tuple(int)): Patch size. Default: 4
+        in_chans (int): Number of input image channels. Default: 3
+        num_classes (int): Number of classes for classification head. Default: 1000
+        embed_dim (int): Patch embedding dimension. Default: 96
+        depths (tuple(int)): Depth of each Swin Transformer layer.
+        num_heads (tuple(int)): Number of attention heads in different layers.
+        window_size (int): Window size. Default: 7
+        mlp_ratio (float): Ratio of mlp hidden dim to embedding dim. Default: 4
+        qkv_bias (bool): If True, add a learnable bias to query, key, value. Default: True
+        qk_scale (float): Override default qk scale of head_dim ** -0.5 if set. Default: None
+        drop_rate (float): Dropout rate. Default: 0
+        attn_drop_rate (float): Attention dropout rate. Default: 0
+        drop_path_rate (float): Stochastic depth rate. Default: 0.1
+        norm_layer (nn.Module): Normalization layer. Default: nn.LayerNorm.
+        ape (bool): If True, add absolute position embedding to the patch embedding. Default: False
+        patch_norm (bool): If True, add normalization after patch embedding. Default: True
+        use_checkpoint (bool): Whether to use checkpointing to save memory. Default: False
     """
 
     def __init__(
@@ -34,6 +58,7 @@ class SwinMAE(nn.Module):
         norm_layer=None,
         patch_norm: bool = True,
     ):
+
         super().__init__()
         self.mask_ratio = mask_ratio
         assert img_size % patch_size == 0
@@ -42,6 +67,7 @@ class SwinMAE(nn.Module):
         self.norm_pix_loss = norm_pix_loss
         self.num_layers = len(depths)
         self.depths = depths
+        self.decoder_embed_dim = decoder_embed_dim
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.drop_path = drop_path_rate
@@ -54,7 +80,7 @@ class SwinMAE(nn.Module):
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
-            in_c=in_chans,
+            in_channel=in_chans,
             embed_dim=embed_dim,
             norm_layer=norm_layer if patch_norm else None,
         )
@@ -63,10 +89,6 @@ class SwinMAE(nn.Module):
         )
         self.mask_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
         self.layers = self.build_layers()
-
-        self.first_patch_expanding = PatchExpanding(
-            dim=decoder_embed_dim, norm_layer=norm_layer
-        )
         self.layers_up = self.build_layers_up()
         self.norm_up = norm_layer(embed_dim)
         self.decoder_pred = nn.Linear(
@@ -207,41 +229,55 @@ class SwinMAE(nn.Module):
 
     def build_layers(self):
         layers = nn.ModuleList()
+        dpr = [
+            x.item() for x in torch.linspace(0, self.drop_rate, sum(self.depths))
+        ]  # stochastic depth decay rule
+
         for i in range(self.num_layers):
-            layer = BasicBlock(
-                index=i,
-                depths=self.depths,
-                embed_dim=self.embed_dim,
-                num_heads=self.num_heads,
-                drop_path=self.drop_path,
+            layer = BasicLayer(
+                dim=self.embed_dim * 2**i,
+                depth=self.depths[i],
                 window_size=self.window_size,
+                num_heads=self.num_heads[i],
                 mlp_ratio=self.mlp_ratio,
                 qkv_bias=self.qkv_bias,
-                drop_rate=self.drop_rate,
-                attn_drop_rate=self.attn_drop_rate,
+                drop=self.drop_rate,
+                attn_drop=self.attn_drop_rate,
+                drop_path=dpr[sum(self.depths[:i]) : sum(self.depths[: i + 1])],
                 norm_layer=self.norm_layer,
-                patch_merging=False if i == self.num_layers - 1 else True,
+                downsample=PatchMerging if i < self.num_layers - 1 else None,
             )
             layers.append(layer)
         return layers
 
     def build_layers_up(self):
         layers_up = nn.ModuleList()
-        for i in range(self.num_layers - 1):
-            layer = BasicBlockUp(
-                index=i,
-                depths=self.depths,
-                embed_dim=self.embed_dim,
-                num_heads=self.num_heads,
-                drop_path=self.drop_path,
-                window_size=self.window_size,
-                mlp_ratio=self.mlp_ratio,
-                qkv_bias=self.qkv_bias,
-                drop_rate=self.drop_rate,
-                attn_drop_rate=self.attn_drop_rate,
-                patch_expanding=True if i < self.num_layers - 2 else False,
-                norm_layer=self.norm_layer,
-            )
+        dpr = [
+            x.item() for x in torch.linspace(0, self.drop_rate, sum(self.depths))
+        ]  # stochastic depth decay rule
+
+        for i in range(self.num_layers):
+            index = self.num_layers - 1 - i
+            if i == 0:
+                layer = PatchExpanding(
+                    dim=self.decoder_embed_dim, norm_layer=self.norm_layer
+                )
+            else:
+                layer = BasicLayer_up(
+                    dim=self.embed_dim * 2**index,
+                    depth=self.depths[index],
+                    window_size=self.window_size,
+                    num_heads=self.num_heads[index],
+                    mlp_ratio=self.mlp_ratio,
+                    qkv_bias=self.qkv_bias,
+                    drop=self.drop_rate,
+                    drop_path=dpr[
+                        sum(self.depths[:index]) : sum(self.depths[: index + 1])
+                    ],
+                    attn_drop=self.attn_drop_rate,
+                    upsample=PatchExpanding if i < self.num_layers - 1 else None,
+                    norm_layer=self.norm_layer,
+                )
             layers_up.append(layer)
         return layers_up
 
@@ -256,16 +292,10 @@ class SwinMAE(nn.Module):
         return x, mask
 
     def forward_decoder(self, x):
-
-        x = self.first_patch_expanding(x)
-
         for layer in self.layers_up:
             x = layer(x)
-
         x = self.norm_up(x)
-
         x = rearrange(x, "B H W C -> B (H W) C")
-
         x = self.decoder_pred(x)
 
         return x
@@ -295,8 +325,8 @@ class SwinMAE(nn.Module):
         return loss, pred, mask
 
 
-def swin_mae(**kwargs):
-    model = SwinMAE(
+def my_swin_mae(**kwargs):
+    model = MySwinMAE(
         img_size=224,
         patch_size=4,
         in_chans=3,
@@ -314,3 +344,7 @@ def swin_mae(**kwargs):
         **kwargs
     )
     return model
+
+if __name__ == '__main__':
+    net = my_swin_mae()
+    y = net.forward_encoder(torch.ones(1,3, 224,224))

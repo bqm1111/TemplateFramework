@@ -4,7 +4,7 @@ import torch
 from torch.utils.data import Dataset
 import os
 import torchvision
-from PIL import Image
+from PIL import Image, ImageOps
 from utils.logger import get_root_logger
 from utils.helper import show_pil_image
 logger = get_root_logger()
@@ -66,16 +66,24 @@ class SunRGBDDataset(DepthDataset):
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
         rgb = Image.open(os.path.join(
             self.rgb_path, str(index + 1).zfill(6) + ".jpg")).convert("RGB")
+        depth = Image.open(os.path.join(
+            self.depth_path, str(index + 1).zfill(6) + ".png"))
+        depth = np.array(depth)
+        max_depth = np.max(depth)
+        depth =  (depth / max_depth * 255.0).astype(np.uint8)
+        depth = Image.fromarray(np.stack((depth,) * 3, axis=-1))
         # raw_depth = np.load(os.path.join(
         #     self.raw_depth_path, str(index) + ".npy"))
         # Transform image
         if self.transforms is not None:
             rgb = self.transforms(rgb)
+            depth = self.transforms(depth)
             # raw_depth = self.transforms(raw_depth)
         # Return output as a dictionary
         output = {"rgb": None, "depth": None, "depth_anything": None}
         if rgb is None:
             logger.error("Receive NoneType")
+            
         return rgb
 
 
