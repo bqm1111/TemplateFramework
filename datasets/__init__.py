@@ -27,15 +27,16 @@ def get_dataset(cfg):
     name = cfg.name
     if name not in ALL_DATASETS:
         logger.warning(
-            "{name} is not supported, please implement it first.".format(
-                name=name)
+            "{name} is not supported, please implement it first.".format(name=name)
         )
         return None
 
     transform = get_transform(cfg.transforms)
-    target_transform = get_transform(cfg.target_transforms)
+    depth_transform = get_transform(cfg.depth_transforms)
 
-    return ALL_DATASETS[name](**cfg.params, transforms=transform, target_transform=None)
+    return ALL_DATASETS[name](
+        **cfg.params, transforms=transform, depth_transform=depth_transform
+    )
 
 
 def get_transform(transforms: DictConfig):
@@ -48,8 +49,7 @@ def get_transform(transforms: DictConfig):
             "ALL_TRANSFORM first.".format(T_name=name)
         )
         if transforms[name].params is not None:
-            transform_list.append(
-                ALL_TRANSFORM[name](**transforms[name].params))
+            transform_list.append(ALL_TRANSFORM[name](**transforms[name].params))
         else:
             transform_list.append(ALL_TRANSFORM[name]())
     return T.Compose(transform_list)

@@ -29,7 +29,7 @@ train:
   model:
     name: "my_swin_mae"
     params:
-      norm_pix_loss: False
+      norm_pix_loss: True
   # Dataset
   dataset:
     name: "sunrgbd"
@@ -82,8 +82,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/my_swin_mae_rgb_unnormalized
-  output_dir: output_dir/my_swin_mae_rgb_unnormalized
+  log_dir: log/my_swin_mae_rgb_normalized
+  output_dir: output_dir/my_swin_mae_rgb_normalized
   model_folder: ~
 
 val:

@@ -8,6 +8,11 @@ from models.vanilla_mae import (
 )
 from models.swin_mae import swin_mae
 from models.reimplement.my_swin_mae import my_swin_mae
+from models.reimplement.dual_swin_mae import (
+    dual_swinmae_t,
+    dual_swinmae_s,
+    dual_swinmae_b,
+)
 from .runner import BaseRunner, VAERunner, MAERunner
 
 # from .optimizer import BaseOptimizer
@@ -28,6 +33,9 @@ AVAI_MODEL = {
     "mae_vit_large_patch16": mae_vit_large_patch16,
     "swin_mae": swin_mae,
     "my_swin_mae": my_swin_mae,
+    "dual_swinmae_t": dual_swinmae_t,
+    "dual_swinmae_b": dual_swinmae_b,
+    "dual_swinmae_s": dual_swinmae_s,
 }
 # AVAI_OPT = {'base_opt': BaseOptimizer, 'sgd': torch.optim.SGD, 'adam': torch.optim.Adam}
 AVAI_OPT = {

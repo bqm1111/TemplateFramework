@@ -141,8 +141,11 @@ class MAERunner(BaseRunner):
             if data_iter_step % accum_iter == 0:
                 lr_sched.adjust_learning_rate(
                     optimizer, data_iter_step / len(data_loader) + epoch, cfg)
-
-            samples = samples.to(device, non_blocking=True)
+            if isinstance(samples, dict):
+                for key in samples.keys():
+                    samples[key] = samples[key].to(device, non_blocking=True)
+            else:
+                samples = samples.to(device, non_blocking=True)
             
             with torch.cuda.amp.autocast():
                 # loss, _, _ = model(samples, mask_ratio=cfg.mask_ratio)

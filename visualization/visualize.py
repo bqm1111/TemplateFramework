@@ -5,7 +5,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from PIL import Image
-from models import vanilla_mae, swin_mae
+from models import swin_mae
 from utils.logger import get_root_logger
 
 # define the utils

@@ -15,7 +15,7 @@ class VAE(nn.Module):
     def encode(self, x):
         h = F.relu(self.fc1(x))
         return self.fc2(h), self.fc3(h)
-    
+
     def reparameterize(self, mu, log_var):
         std = torch.exp(log_var/2)
         eps = torch.randn_like(std)
@@ -30,3 +30,4 @@ class VAE(nn.Module):
         z = self.reparameterize(mu, log_var)
         x_reconst = self.decode(z)
         return x_reconst, mu, log_var
+

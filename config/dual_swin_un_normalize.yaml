@@ -27,7 +27,7 @@ train:
 
   # Model
   model:
-    name: "my_swin_mae"
+    name: "dual_swinmae_t"
     params:
       norm_pix_loss: False
   # Dataset
@@ -54,6 +54,22 @@ train:
           # nyuv2
           # mean: [0.4184, 0.3545, 0.3333]
           # std: [0.2993, 0.2884, 0.2945]
+    depth_transforms:
+      RandomResizedCrop:
+        params:
+          size: [224, 224]
+          scale: [0.2, 1.0]
+          interp_mode: 3
+      RandomHorizontalFlip:
+        params: ~
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # sunrgbd depth
+          mean: [0.4132, 0.4132, 0.4132]
+          std: [0.2703, 0.2703, 0.2703]
+
     target_transforms:
       resize:
         params:
@@ -82,8 +98,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/my_swin_mae_rgb_unnormalized
-  output_dir: output_dir/my_swin_mae_rgb_unnormalized
+  log_dir: log/dual_swin_unnormalized
+  output_dir: output_dir/dual_swin_unnormalized
   model_folder: ~
 
 val:
