@@ -1,11 +1,11 @@
 import argparse
-
 import torch
 import numpy as np
 
 import matplotlib.pyplot as plt
 from PIL import Image
 from models import swin_mae
+from models.reimplement import my_swin_mae
 from utils.logger import get_root_logger
 
 # define the utils
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     def prepare_model(chkpt_dir, arch="mae_vit_large_patch16"):
         # build model
-        model = getattr(swin_mae, arch)()
+        model = getattr(my_swin_mae, arch)()
         # load model
         checkpoint = torch.load(chkpt_dir, map_location="cpu")
         msg = model.load_state_dict(checkpoint["model"], strict=False)
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         mask = mask.detach()
         print(f"Shape of mask = {mask.shape}")
         mask = mask.unsqueeze(-1).repeat(
-            1, 1, model.patch_embed.patch_size**2 * 3
+            1, 1, model.patch_embed.patch_size[0]**2 * 3
         )  # (N, H*W, p*p*3)
         mask = model.unpatchify(mask)  # 1 is removing, 0 is keeping
         mask = torch.einsum("nchw->nhwc", mask).detach().cpu()
@@ -131,12 +131,13 @@ if __name__ == "__main__":
         chkpt_dir = "output_dir/rgb_normalized/checkpoint-" + str(args.epoch) + ".pth"
     else:
         if args.rgb:
-            chkpt_dir = "output_dir/no_normalize/checkpoint-" + str(args.epoch) + ".pth"
+            chkpt_dir = "output_dir/my_swin_mae_rgb_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
         else:
             chkpt_dir = "output_dir/depth_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
 
-    model_mae = prepare_model(chkpt_dir, "swin_mae")
+    model_mae = prepare_model(chkpt_dir, "my_swin_mae")
     print("Model loaded.")
     torch.manual_seed(2)
     print("MAE with pixel reconstruction:")
     run_one_image(img, model_mae, args.use_norm)
+    

@@ -5,7 +5,7 @@ from einops import rearrange
 import time
 from collections import OrderedDict
 
-from .my_swin import (
+from models.reimplement.my_swin import (
     BasicLayer,
     PatchExpanding,
     BasicLayer_up,
@@ -447,7 +447,11 @@ class DualSwinMAE(nn.Module):
         loss = self.forward_loss(x, pred, mask)
         loss_d = self.forward_loss(x_d, pred_d, mask_d)
         total_loss = 0.5 * loss + 0.5 * loss_d
-        return total_loss, pred, mask
+        return (
+            total_loss,
+            {"rgb": pred, "depth": pred_d},
+            {"rgb": mask, "depth": mask_d},
+        )
 
 
 def load_dualpath_model(model, model_file, is_restore=False):
@@ -553,11 +557,11 @@ class dual_swinmae_s(DualSwinMAE):
 
 class dual_swinmae_b(DualSwinMAE):
     def __init__(self, **kwargs):
-        super(dual_swinmae_s, self).__init__(
+        super(dual_swinmae_b, self).__init__(
             img_size=384,
             patch_size=4,
             in_chans=3,
-            decoder_embed_dim=768,
+            decoder_embed_dim=1024,
             norm_pix_loss=False,
             embed_dim=128,
             depths=[2, 2, 18, 2],
@@ -577,6 +581,6 @@ class dual_swinmae_b(DualSwinMAE):
 
 
 if __name__ == "__main__":
-    net = DualSwinMAE()
-    inputs = {"rgb": torch.ones(1, 3, 224, 224), "depth": torch.ones(1, 3, 224, 224)}
+    net = dual_swinmae_b()
+    inputs = {"rgb": torch.ones(1, 3, 384, 384), "depth": torch.ones(1, 3, 384, 384)}
     y = net(inputs)

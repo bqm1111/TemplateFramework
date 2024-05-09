@@ -128,7 +128,7 @@ class MAERunner(BaseRunner):
             window_size=1, fmt='{value:.6f}'))
         header = 'Epoch: [{}]'.format(epoch)
         print_freq = 20
-
+        
         accum_iter = cfg.accum_iter
 
         optimizer.zero_grad()
@@ -196,10 +196,14 @@ class MAERunner(BaseRunner):
             self.model = torch.nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[cfg.gpu], find_unused_parameters=True)
             self.model_without_ddp = self.model.module
-
+        
+        start_epoch = 0    
+        if cfg.resume is not None:
+            start_epoch = misc.load_model_to_resume(cfg, self.model, optimizer=self.optimizer, loss_scaler=self.loss_scaler)
+        
         self.model.train()
         start_time = time.time()
-        for epoch in range(cfg.num_epochs):
+        for epoch in range(start_epoch, cfg.num_epochs):
             if cfg.distributed:
                 self.train_loader.sampler.set_epoch(epoch)
             train_stats = self.train_one_epoch(

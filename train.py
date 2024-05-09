@@ -63,7 +63,7 @@ if __name__ == "__main__":
     scheduler = get_scheduler(
         optimizer=optimizer, lr_scheduler=train_cfg.scheduler_name
     )
-    misc.load_model(train_cfg, model, optimizer=optimizer, loss_scaler=NativeScaler())
+
     runner = get_runner(train_cfg.runner_name)(
         model, optimizer, losses, scheduler, train_loader, val_loader
     )

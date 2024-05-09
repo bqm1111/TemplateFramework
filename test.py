@@ -93,17 +93,17 @@ def test_loop(dataloader, model, loss_fn):
 
 
 if __name__ == "__main__":
-    model = NeuralNetwork()
-    learning_rate = 1e-3
-    batch_size = 64
-    epochs = 5
+    # model = NeuralNetwork()
+    # learning_rate = 1e-3
+    # batch_size = 64
+    # epochs = 5
 
-    loss_fn = nn.CrossEntropyLoss()
-    param_groups = optim_factory.param_groups_weight_decay(model, 1)
-    optimizer = torch.optim.SGD(param_groups, lr=learning_rate)
-    for name in model.parameters():
-        print(name)
-    print(param_groups[0].keys())
+    # loss_fn = nn.CrossEntropyLoss()
+    # param_groups = optim_factory.param_groups_weight_decay(model, 1)
+    # optimizer = torch.optim.SGD(param_groups, lr=learning_rate)
+    # for name in model.parameters():
+    #     print(name)
+    # print(param_groups[0].keys())
     # for param in optimizer.param_groups:
     #     if param.keys() == "params":
     #         print(param.keys())
@@ -114,3 +114,11 @@ if __name__ == "__main__":
     #     train_loop(train_dataloader, model, loss_fn, optimizer)
     #     test_loop(test_dataloader, model, loss_fn)
     # print("Done!")
+    def func(d):
+     d['a'] = 10
+     d['b'] = 20
+ 
+    d = {'a': 1, 'b': 2}
+    func(d)
+    print(d)
+

@@ -83,8 +83,10 @@ class SunRGBDDataset(DepthDataset):
         output = {"rgb": rgb, "depth": depth}
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
-            
-        return output
+        if self.depth_transform is not None:
+            return output
+        else:
+            return rgb
 
 
 class MNIST(torchvision.datasets.MNIST):
