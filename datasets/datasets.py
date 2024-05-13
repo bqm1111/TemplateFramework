@@ -12,18 +12,25 @@ logger = get_root_logger()
 
 
 class DepthDataset(Dataset):
-    def __init__(self, root, split, transforms=None, depth_transform=None):
+    def __init__(
+        self,
+        root,
+        split,
+        transforms=None,
+        target_transforms=None,
+        depth_transforms=None,
+        common_transforms=None,
+    ):
         self.root_dir = root
         self.split = split
         self.transforms = transforms
-        self.depth_transform = depth_transform
+        self.target_tranforms = target_transforms
+        self.depth_transforms = depth_transforms
+        self.common_transforms = common_transforms
         self.rgb_path = os.path.join(self.root_dir, "image")
         self.depth_path = os.path.join(self.root_dir, "depth")
         self.label_path = os.path.join(self.root_dir, "seglabel")
         self.raw_depth_anything_path = os.path.join(self.root_dir, "rawDepthAnything")
-        self.depth_unfilled_path = os.path.join(self.root_dir, "Depth_unfilled")
-        self.raw_depth_path = os.path.join(self.root_dir, "rawDepths")
-        self.raw_depth_filled_path = os.path.join(self.root_dir, "rawDepths_filled")
         all_index_file = os.path.join(self.root_dir, split + "_data_idx.txt")
         if not os.path.exists(all_index_file):
             raise Exception(f"Split index file does not exist {all_index_file}")
@@ -36,8 +43,23 @@ class DepthDataset(Dataset):
 
 
 class NYUv2Dataset(DepthDataset):
-    def __init__(self, root, split, transforms=None, depth_transform=None):
-        super(NYUv2Dataset, self).__init__(root, split, transforms, depth_transform)
+    def __init__(
+        self,
+        root,
+        split,
+        transforms=None,
+        target_transforms=None,
+        depth_transforms=None,
+        common_transforms=None,
+    ):
+        super(NYUv2Dataset, self).__init__(
+            root,
+            split,
+            transforms,
+            target_transforms,
+            depth_transforms,
+            common_transforms,
+        )
 
     def __getitem__(self, index):
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
@@ -57,8 +79,23 @@ class NYUv2Dataset(DepthDataset):
 
 
 class SunRGBDDataset(DepthDataset):
-    def __init__(self, root, split, transforms=None, depth_transform=None):
-        super(SunRGBDDataset, self).__init__(root, split, transforms, depth_transform)
+    def __init__(
+        self,
+        root,
+        split,
+        transforms=None,
+        target_transforms=None,
+        depth_transforms=None,
+        common_transforms=None,
+    ):
+        super(SunRGBDDataset, self).__init__(
+            root,
+            split,
+            transforms,
+            target_transforms,
+            depth_transforms,
+            common_transforms,
+        )
 
     def __getitem__(self, index):
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
@@ -75,18 +112,25 @@ class SunRGBDDataset(DepthDataset):
         raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
             raw_depth_anything
         )
+        if self.common_transforms is not None:
+            rgb = self.common_transforms(rgb)
+            depth = self.common_transforms(depth)
+            raw_depth_anything = self.common_transforms(raw_depth_anything)
         # Transform image
         if self.transforms is not None:
             rgb = self.transforms(rgb)
-        if self.depth_transform is not None:
-            depth = self.depth_transform(depth)
-            raw_depth_anything = self.depth_transform(raw_depth_anything)
-            # raw_depth = self.transforms(raw_depth)
+
+        if self.depth_transforms is not None:
+            depth = self.depth_transforms(depth)
+
+        if self.target_tranforms is not None:
+            raw_depth_anything = self.target_tranforms(raw_depth_anything)
+
         # Return output as a dictionary
         output = {"rgb": rgb, "depth": depth, "depth_anything": raw_depth_anything}
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
-        if self.depth_transform is not None:
+        if self.depth_transforms is not None:
             return output
         else:
             return rgb

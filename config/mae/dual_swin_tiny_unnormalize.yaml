@@ -36,7 +36,7 @@ train:
     params:
       root: "data/sunrgbd_trainval"
       split: "train"
-    transforms:
+    common_transforms:
       RandomResizedCrop:
         params:
           size: [224, 224]
@@ -46,6 +46,8 @@ train:
         params: ~
       to_tensor:
         params: ~
+
+    transforms:
       normalize:
         params:
           # sunrgbd rgb
@@ -55,15 +57,6 @@ train:
           # mean: [0.4184, 0.3545, 0.3333]
           # std: [0.2993, 0.2884, 0.2945]
     depth_transforms:
-      RandomResizedCrop:
-        params:
-          size: [224, 224]
-          scale: [0.2, 1.0]
-          interp_mode: 3
-      RandomHorizontalFlip:
-        params: ~
-      to_tensor:
-        params: ~
       normalize:
         params:
           # sunrgbd depth
@@ -71,9 +64,12 @@ train:
           std: [0.2703, 0.2703, 0.2703]
 
     target_transforms:
-      resize:
+      normalize:
         params:
-          size: [224, 224]
+          # sunrgbd depth
+          mean: [0.4975, 0.4975, 0.4975]
+          std: [0.2218, 0.2218, 0.2218]
+
 
   # Losses
   losses:
@@ -98,8 +94,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_unnormalized
-  output_dir: output_dir/dual_swin_unnormalized
+  log_dir: log/dual_swin_tiny_unnormalized
+  output_dir: output_dir/dual_swin_tiny_unnormalized
   model_folder: ~
 
 val:

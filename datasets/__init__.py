@@ -31,11 +31,17 @@ def get_dataset(cfg):
         )
         return None
 
-    transform = get_transform(cfg.transforms)
-    depth_transform = get_transform(cfg.depth_transforms)
+    transforms = get_transform(cfg.transforms)
+    depth_transforms = get_transform(cfg.depth_transforms)
+    target_transforms = get_transform(cfg.target_transforms)
+    common_transforms = get_transform(cfg.common_transforms)
 
     return ALL_DATASETS[name](
-        **cfg.params, transforms=transform, depth_transform=depth_transform
+        **cfg.params,
+        transforms=transforms,
+        target_transforms=target_transforms,
+        depth_transforms=depth_transforms,
+        common_transforms = common_transforms
     )
 
 

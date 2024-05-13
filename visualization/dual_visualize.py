@@ -14,9 +14,12 @@ import os
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--use_norm", action="store_true")
-parser.add_argument("--img", type=int)
-parser.add_argument("--epoch", type=int, default=1040)
+parser.add_argument("--ckpt_path", type=str, help="Path to checkpoint")
+parser.add_argument(
+    "--use_norm", action="store_true", help="reconstruct normalized pixel if true"
+)
+parser.add_argument("--img", type=int, help="Ordinal number of an image")
+parser.add_argument("--epoch", type=int, default=1040, help="Saved epoch used")
 logger = get_root_logger()
 
 if __name__ == "__main__":
@@ -111,48 +114,45 @@ if __name__ == "__main__":
         plt.subplot(1, 4, 4)
         show_image(im_paste[0], use_norm, norm, "reconstruction + visible")
 
+    def process_depth_img(depth):
+        depth = Image.fromarray((depth / np.max(depth) * 255.0).astype(np.uint8))
+        depth = depth.resize((224, 224))
+        depth = np.array(depth) / 255.0
+        depth = np.stack((depth,) * 3, axis=-1)
+        return depth
 
     # load an image
     data_path = "data/sunrgbd_trainval"
     file_name = str(args.img).zfill(6)
     rgb_path = os.path.join(data_path, "image", file_name + ".jpg")
     depth_path = os.path.join(data_path, "depth", file_name + ".png")
+    raw_depth_anything_path = os.path.join(
+        data_path, "rawDepthAnything", file_name + ".npy"
+    )
 
     rgb = Image.open(rgb_path)
     rgb = rgb.resize((224, 224))
     rgb = np.array(rgb) / 255.0
 
-    depth = Image.open(depth_path)
-    depth = np.array(depth)
-    depth = Image.fromarray((depth / np.max(depth) * 255.0).astype(np.uint8))
-    depth = depth.resize((224, 224))
-    depth = np.array(depth) / 255.0
-    depth = np.stack((depth,) * 3, axis=-1)
+    depth = np.array(Image.open(depth_path))
+    depth = process_depth_img(depth)
+
+    raw_depth_anything = np.load(raw_depth_anything_path)
+    raw_depth_anything = process_depth_img(raw_depth_anything)
 
     # normalize by ImageNet mean and std
-    if args.use_norm:
-        print("Using normalization")
-        rgb = rgb - NORM_RGB["mean"]
-        rgb = rgb / NORM_RGB["std"]
-        depth = depth - NORM_DEPTH["mean"]
-        depth = depth / NORM_DEPTH["std"]
+    rgb = rgb - NORM_RGB["mean"]
+    rgb = rgb / NORM_RGB["std"]
+    depth = depth - NORM_DEPTH["mean"]
+    depth = depth / NORM_DEPTH["std"]
 
-    img = {"rgb": rgb, "depth": depth}
+    img = {"rgb": rgb, "depth": depth, "deph_anything": raw_depth_anything}
     plt.rcParams["figure.figsize"] = [5, 5]
-    # show_image(torch.tensor(img))
-    if args.use_norm:
-        chkpt_dir = (
-            "output_dir/dual_swin_small_normalized/checkpoint-" + str(args.epoch) + ".pth"
-        )
-    else:
-        chkpt_dir = (
-            "output_dir/dual_swin_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
-        )
 
+    chkpt_dir = os.path.join(args.ckpt_path, "checkpoint-" + str(args.epoch) + ".pth")
     model_mae = prepare_model(chkpt_dir, "dual_swinmae_s")
     print("Model loaded.")
     torch.manual_seed(2)
     print("MAE with pixel reconstruction:")
-    run_model(img, model_mae, args.use_norm)    
+    run_model(img, model_mae, args.use_norm)
     plt.show()
-
