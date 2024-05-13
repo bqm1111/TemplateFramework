@@ -20,6 +20,7 @@ class DepthDataset(Dataset):
         self.rgb_path = os.path.join(self.root_dir, "image")
         self.depth_path = os.path.join(self.root_dir, "depth")
         self.label_path = os.path.join(self.root_dir, "seglabel")
+        self.raw_depth_anything_path = os.path.join(self.root_dir, "rawDepthAnything")
         self.depth_unfilled_path = os.path.join(self.root_dir, "Depth_unfilled")
         self.raw_depth_path = os.path.join(self.root_dir, "rawDepths")
         self.raw_depth_filled_path = os.path.join(self.root_dir, "rawDepths_filled")
@@ -64,23 +65,25 @@ class SunRGBDDataset(DepthDataset):
         rgb = Image.open(
             os.path.join(self.rgb_path, str(index + 1).zfill(6) + ".jpg")
         ).convert("RGB")
-        depth = Image.open(
-            os.path.join(self.depth_path, str(index + 1).zfill(6) + ".png")
+        depth = np.array(
+            Image.open(os.path.join(self.depth_path, str(index + 1).zfill(6) + ".png"))
         )
-        depth = np.array(depth)
-        max_depth = np.max(depth)
-        depth = (depth / max_depth * 255.0).astype(np.uint8)
-        depth = Image.fromarray(np.stack((depth,) * 3, axis=-1))
-        # raw_depth = np.load(os.path.join(
-        #     self.raw_depth_path, str(index) + ".npy"))
+        raw_depth_anything = np.load(
+            os.path.join(self.raw_depth_anything_path, str(index + 1).zfill(6) + ".npy")
+        )
+        depth = self.convert_raw_depth_to_3_channels_img(depth)
+        raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
+            raw_depth_anything
+        )
         # Transform image
         if self.transforms is not None:
             rgb = self.transforms(rgb)
         if self.depth_transform is not None:
-            depth = self.transforms(depth)
+            depth = self.depth_transform(depth)
+            raw_depth_anything = self.depth_transform(raw_depth_anything)
             # raw_depth = self.transforms(raw_depth)
         # Return output as a dictionary
-        output = {"rgb": rgb, "depth": depth}
+        output = {"rgb": rgb, "depth": depth, "depth_anything": raw_depth_anything}
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
         if self.depth_transform is not None:
@@ -88,6 +91,18 @@ class SunRGBDDataset(DepthDataset):
         else:
             return rgb
 
+    @staticmethod
+    def convert_raw_depth_to_3_channels_img(depth):
+        max_depth = np.max(depth)
+        depth = (depth / max_depth * 255.0).astype(np.uint8)
+        depth = Image.fromarray(np.stack((depth,) * 3, axis=-1))
+        return depth
+
 
 class MNIST(torchvision.datasets.MNIST):
     pass
+
+
+if __name__ == "__main__":
+    raw = np.load("data/sunrgbd_trainval/rawDepthAnything/000128.npy")
+    print(raw)

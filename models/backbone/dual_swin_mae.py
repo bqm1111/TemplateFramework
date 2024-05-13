@@ -5,7 +5,7 @@ from einops import rearrange
 import time
 from collections import OrderedDict
 
-from models.reimplement.my_swin import (
+from models.backbone.swin import (
     BasicLayer,
     PatchExpanding,
     BasicLayer_up,
@@ -28,7 +28,6 @@ class DualSwinMAE(nn.Module):
         mask_ratio: float = 0.75,
         in_chans: int = 3,
         decoder_embed_dim=768,
-        norm_pix_loss=False,
         depths: tuple = (2, 2, 6, 2),
         embed_dim: int = 96,
         num_heads: tuple = (3, 6, 12, 24),
@@ -44,9 +43,14 @@ class DualSwinMAE(nn.Module):
         out_indices=(0, 1, 2, 3),
         frozen_stages=-1,
         use_checkpoint=False,
+        norm_pix_loss=False,
+        target_type: str = "origin",
     ):
 
         super().__init__()
+        logger.info(f"norm_pix_loss = {norm_pix_loss}")
+        logger.info(f"target_type = {target_type}")
+
         self.mask_ratio = mask_ratio
         assert img_size % patch_size == 0
         self.num_patches = (img_size // patch_size) ** 2
@@ -66,6 +70,7 @@ class DualSwinMAE(nn.Module):
         self.norm_layer = norm_layer
         self.norm_fuse = norm_fuse
         self.out_indices = out_indices
+        self.target_type = target_type
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
@@ -87,18 +92,19 @@ class DualSwinMAE(nn.Module):
 
         self.pos_drop = nn.Dropout(p=drop_rate)
         self.pos_drop_d = nn.Dropout(p=drop_rate)
-
         self.mask_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
+
         self.layers = self.build_layers()
-        self.layers_up = self.build_layers_up()
         self.layers_d = self.build_layers()
-        self.layers_up_d = self.build_layers_up()
         self.downsample, self.downsample_d = self.build_downsample_layers()
         self.norm_up = norm_layer(embed_dim)
-        self.norm_up_d = norm_layer(embed_dim)
         self.decoder_pred = nn.Linear(
             decoder_embed_dim // 8, patch_size**2 * in_chans, bias=True
         )
+
+        self.layers_up = self.build_layers_up()
+        self.layers_up_d = self.build_layers_up()
+        self.norm_up_d = norm_layer(embed_dim)
         self.decoder_pred_d = nn.Linear(
             decoder_embed_dim // 8, patch_size**2 * in_chans, bias=True
         )
@@ -417,7 +423,7 @@ class DualSwinMAE(nn.Module):
             x_d = layer(x_d)
         x_d = self.norm_up_d(x_d)
         x_d = rearrange(x_d, "B H W C -> B (H W) C")
-        x_d = self.decoder_pred(x_d)
+        x_d = self.decoder_pred_d(x_d)
 
         return x, x_d
 
@@ -442,10 +448,17 @@ class DualSwinMAE(nn.Module):
     def forward(self, inputs: dict):
         x = inputs["rgb"]
         x_d = inputs["depth"]
+        depth_anything_target = inputs["depth_anything"]
         latent, mask, latent_d, mask_d = self.forward_encoder(x, x_d)
         pred, pred_d = self.forward_decoder(latent, latent_d)
         loss = self.forward_loss(x, pred, mask)
-        loss_d = self.forward_loss(x_d, pred_d, mask_d)
+        if self.target_type == "origin":
+            loss_d = self.forward_loss(x_d, pred_d, mask_d)
+        elif self.target_type == "rawDepthAnything":
+            loss_d = self.forward_loss(depth_anything_target, pred_d, mask_d)
+        elif self.target_type == "mix":
+            raise NotImplementedError
+
         total_loss = 0.5 * loss + 0.5 * loss_d
         return (
             total_loss,
@@ -512,7 +525,6 @@ class dual_swinmae_t(DualSwinMAE):
             patch_size=4,
             in_chans=3,
             decoder_embed_dim=768,
-            norm_pix_loss=False,
             embed_dim=96,
             depths=[2, 2, 6, 2],
             num_heads=[3, 6, 12, 24],
@@ -527,6 +539,7 @@ class dual_swinmae_t(DualSwinMAE):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 
@@ -537,7 +550,6 @@ class dual_swinmae_s(DualSwinMAE):
             patch_size=4,
             in_chans=3,
             decoder_embed_dim=768,
-            norm_pix_loss=False,
             embed_dim=96,
             depths=[2, 2, 18, 2],
             num_heads=[3, 6, 12, 24],
@@ -552,6 +564,7 @@ class dual_swinmae_s(DualSwinMAE):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 
@@ -562,7 +575,6 @@ class dual_swinmae_b(DualSwinMAE):
             patch_size=4,
             in_chans=3,
             decoder_embed_dim=1024,
-            norm_pix_loss=False,
             embed_dim=128,
             depths=[2, 2, 18, 2],
             num_heads=[4, 8, 16, 32],
@@ -577,6 +589,7 @@ class dual_swinmae_b(DualSwinMAE):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 

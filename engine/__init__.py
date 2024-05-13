@@ -1,14 +1,12 @@
 # copyright ziqi-jin
 import torch
-from models.vae import VAE
 from models.vanilla_mae import (
     mae_vit_base_patch16,
     mae_vit_huge_patch14,
     mae_vit_large_patch16,
 )
-from models.swin_mae import swin_mae
-from models.reimplement.my_swin_mae import my_swin_mae
-from models.reimplement.dual_swin_mae import (
+from models.backbone.swin_mae import swin_mae
+from models.backbone.dual_swin_mae import (
     dual_swinmae_t,
     dual_swinmae_s,
     dual_swinmae_b,
@@ -27,12 +25,10 @@ AVAI_SCH = [
     "constant",
 ]
 AVAI_MODEL = {
-    "vae": VAE,
     "mae_vit_base_patch16": mae_vit_base_patch16,
     "mae_vit_huge_patch14": mae_vit_huge_patch14,
     "mae_vit_large_patch16": mae_vit_large_patch16,
     "swin_mae": swin_mae,
-    "my_swin_mae": my_swin_mae,
     "dual_swinmae_t": dual_swinmae_t,
     "dual_swinmae_b": dual_swinmae_b,
     "dual_swinmae_s": dual_swinmae_s,

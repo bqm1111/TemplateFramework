@@ -4,7 +4,7 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from PIL import Image
-from models.reimplement import dual_swin_mae
+from models.backbone import dual_swin_mae
 from utils.logger import get_root_logger
 import os
 
@@ -142,14 +142,14 @@ if __name__ == "__main__":
     # show_image(torch.tensor(img))
     if args.use_norm:
         chkpt_dir = (
-            "output_dir/dual_swin_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
+            "output_dir/dual_swin_small_normalized/checkpoint-" + str(args.epoch) + ".pth"
         )
     else:
         chkpt_dir = (
             "output_dir/dual_swin_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
         )
 
-    model_mae = prepare_model(chkpt_dir, "dual_swinmae_t")
+    model_mae = prepare_model(chkpt_dir, "dual_swinmae_s")
     print("Model loaded.")
     torch.manual_seed(2)
     print("MAE with pixel reconstruction:")

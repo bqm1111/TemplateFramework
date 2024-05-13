@@ -30,6 +30,7 @@ train:
     name: "dual_swinmae_s"
     params:
       norm_pix_loss: True
+      target_type: "origin"
   # Dataset
   dataset:
     name: "sunrgbd"
@@ -98,8 +99,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_small_normalized
-  output_dir: output_dir/dual_swin_small_normalized
+  log_dir: log/dual_swin_small_normalized_target_depth_anything
+  output_dir: output_dir/dual_swin_small_normalized_target_depth_anything
   model_folder: ~
 
 val:
