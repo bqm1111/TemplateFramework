@@ -96,9 +96,3 @@ train:
   log_dir: log/dual_swin_small_normalized
   output_dir: output_dir/dual_swin_small_normalized
   model_folder: ~
-
-val:
-  # Dataset
-  dataset: ~
-test:
-  need_test: False

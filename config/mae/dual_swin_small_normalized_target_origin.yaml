@@ -67,7 +67,7 @@ train:
     target_transforms:
       normalize:
         params:
-          # sunrgbd depth
+          # sunrgbd depth anything
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
 
@@ -98,9 +98,3 @@ train:
   output_dir: output_dir/dual_swin_small_normalized_target_origin
   model_folder: ~
 
-val:
-  # Dataset
-  dataset: ~
-test:
-  need_test: False
-  

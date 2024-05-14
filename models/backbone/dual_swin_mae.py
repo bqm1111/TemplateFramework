@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 from einops import rearrange
-import time
-from collections import OrderedDict
 
 from models.backbone.swin import (
     BasicLayer,
@@ -142,17 +140,14 @@ class DualSwinMAE(nn.Module):
                 for param in m.parameters():
                     param.requires_grad = False
 
-    def initialize_weights(self, pretrained=None):
+    def initialize_weights(self):
         pos_embed = get_2d_sincos_pos_embed(
             self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
         )
         self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         torch.nn.init.normal_(self.mask_token, std=0.02)
-        if isinstance(pretrained, str):
-            load_dualpath_model(self, pretrained)
-        else:
-            self.apply(self._init_weights)
+        self.apply(self._init_weights)
 
     @staticmethod
     def _init_weights(m):
@@ -367,7 +362,7 @@ class DualSwinMAE(nn.Module):
             layers_up.append(layer)
         return layers_up
 
-    def forward_encoder(self, x: torch.Tensor, x_d: torch.Tensor, mae_pretrain=True):
+    def forward_encoder(self, x: torch.Tensor, x_d: torch.Tensor):
         B, H, W, C = x.shape
         x = self.patch_embed(x)
         x_d = self.patch_embed_d(x_d)
@@ -407,10 +402,7 @@ class DualSwinMAE(nn.Module):
                 out = self.FFMs[i](x_out, x_out_d)
 
                 outs.append(out)
-        if mae_pretrain:
-            return x, mask, x_d, mask_d
-        else:
-            return tuple(outs)
+        return x, mask, x_d, mask_d
 
     def forward_decoder(self, x, x_d):
         for layer in self.layers_up:
@@ -446,6 +438,7 @@ class DualSwinMAE(nn.Module):
         return loss
 
     def forward(self, inputs: dict):
+        print(inputs.keys())
         x = inputs["rgb"]
         x_d = inputs["depth"]
         depth_anything_target = inputs["depth_anything"]
@@ -465,57 +458,6 @@ class DualSwinMAE(nn.Module):
             {"rgb": pred, "depth": pred_d},
             {"rgb": mask, "depth": mask_d},
         )
-
-
-def load_dualpath_model(model, model_file, is_restore=False):
-    # load raw state_dict
-    t_start = time.time()
-    if isinstance(model_file, str):
-        raw_state_dict = torch.load(model_file, map_location=torch.device("cpu"))
-        # raw_state_dict = torch.load(model_file)
-        if "model" in raw_state_dict.keys():
-            raw_state_dict = raw_state_dict["model"]
-    else:
-        raw_state_dict = model_file
-    # copy to  hha backbone
-    state_dict = {}
-    for k, v in raw_state_dict.items():
-        if k.find("downsample") >= 0 and k.find("layer") >= 0:
-            name = k.replace("downsample.", "")
-            name = name.replace("layers", "downsamples")
-            state_dict[name] = v
-            name = name.replace("downsamples", "downsamples_d")
-            state_dict[name] = v
-        elif k.find("patch_embed") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("patch_embed", "patch_embed_d")] = v
-        elif k.find("layer") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("layers", "layers_d")] = v
-        elif k.find("norm") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("norm", "norm_d")] = v
-
-    t_ioend = time.time()
-
-    if is_restore:
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = "module." + k
-            new_state_dict[name] = v
-        state_dict = new_state_dict
-
-    model.load_state_dict(state_dict, strict=False)
-
-    del state_dict
-    t_end = time.time()
-    logger.info(
-        "Load model, Time usage:\n\tIO: {}, initialize parameters: {}".format(
-            t_ioend - t_start, t_end - t_ioend
-        )
-    )
-
-    return model
 
 
 class dual_swinmae_t(DualSwinMAE):

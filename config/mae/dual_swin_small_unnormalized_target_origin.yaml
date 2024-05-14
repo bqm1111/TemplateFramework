@@ -75,10 +75,6 @@ train:
   # Losses
   losses:
     ~
-    # loss:
-    #   type: native_scaler
-    #   weight: 1.0
-    #   params: ~
 
   # Optimizer
   opt_params:
@@ -91,16 +87,10 @@ train:
     wd_list: ~
 
   opt_name: "adamw"
-  scheduler_name: "constant"
+  scheduler_name: ~
   # Logger
   use_tensorboard: True
   tensorboard_folder:
   log_dir: log/dual_swin_small_unnormalized_target_origin
   output_dir: output_dir/dual_swin_small_unnormalized_target_origin
   model_folder: ~
-
-val:
-  # Dataset
-  dataset: ~
-test:
-  need_test: False

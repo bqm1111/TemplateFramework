@@ -1,13 +1,11 @@
 import argparse
 from omegaconf import OmegaConf
+from omegaconf.errors import ConfigKeyError
 from torch.utils.data import DataLoader
 from datasets import get_dataset
 from losses import get_losses
 from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_runner
 from timm.optim import optim_factory
-from utils import misc
-from utils.misc import NativeScalerWithGradNormCount as NativeScaler
-import torch
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="Path to config file")
@@ -17,8 +15,14 @@ if __name__ == "__main__":
     config = OmegaConf.load(args.config)
 
     train_cfg = config.train
-    val_cfg = config.val
-    test_cfg = config.test
+    try:
+        val_cfg = config.val
+    except ConfigKeyError:
+        val_cfg = None
+    try:
+        test_cfg = config.test
+    except ConfigKeyError:
+        test_cfg = None
 
     train_dataset = get_dataset(train_cfg.dataset)
     train_loader = DataLoader(
@@ -28,8 +32,10 @@ if __name__ == "__main__":
         num_workers=train_cfg.num_workers,
         drop_last=train_cfg.drop_last,
     )
-
-    val_dataset = get_dataset(val_cfg.dataset)
+    if val_cfg is not None:
+        val_dataset = get_dataset(val_cfg.dataset)
+    else:
+        val_dataset = None
 
     if val_dataset is not None:
         val_loader = DataLoader(
@@ -45,6 +51,7 @@ if __name__ == "__main__":
 
     # according the model name to get the adapted model
     model = get_model(model_name=train_cfg.model.name, **train_cfg.model.params)
+    # TODO: Unify interface for MAE and SemSeg training
     # opt_params = get_opt_params(
     #     model,
     #     lr_list=train_cfg.opt_params.lr_list,
@@ -64,11 +71,11 @@ if __name__ == "__main__":
         optimizer=optimizer, lr_scheduler=train_cfg.scheduler_name
     )
 
-    runner = get_runner(train_cfg.runner_name)(
+    runner = get_runner(train_cfg)(
         model, optimizer, losses, scheduler, train_loader, val_loader
     )
 
     # train_step
-    runner.train(train_cfg)
-    if test_cfg.need_test:
-        runner.test(test_cfg)
+    runner.train()
+    if test_cfg is not None and test_cfg.need_test:
+        runner.test()

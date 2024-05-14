@@ -14,22 +14,27 @@ import math
 from utils.logger import get_root_logger
 import sys
 from typing import Iterable
-from utils import misc, lr_sched
+from utils import misc, lr_sched, lr_policy
 import time
 import datetime
 import json
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
+from utils.misc import all_reduce_tensor, all_reduce_mean
 from torch.utils.tensorboard import SummaryWriter
+logger = get_root_logger()
 
 
 class BaseRunner():
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader):
+    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
         self.optimizer = optimizer
         self.losses = losses
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.model = model
         self.scheduler = scheduler
+        self.train_cfg = train_cfg
+        self.val_cfg = val_cfg
+        self.test_cfg = test_cfg
         self.trainer_timer = Timer()
         self.eval_timer = Timer()
         self.logger = get_root_logger()
@@ -43,150 +48,11 @@ class BaseRunner():
         if self.the_number_of_gpu > 1:
             self.model = nn.DataParallel(self.model)
 
+    def train_one_epoch(self):
+        raise NotImplementedError
 
-class VAERunner(BaseRunner):
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader):
-        super().__init__(model, optimizer, losses, scheduler, train_loader, val_loader)
-        self.exist_status = ["train", "val", "test"]
-        self.sample_dir = "samples/test"
-
-    def train(self, cfg):
-        train_meter = Average_Meter(list(self.losses.keys()) + ["total_loss"])
-
-        for epoch in range(cfg.num_epoch):
-            self.model.train()
-            for iteration, (x, _) in enumerate(self.train_loader):
-                # Forward pass
-                x = x.cuda().view(-1, cfg.model.params.image_size)
-                x_reconst, mu, log_var = self.model(x)
-
-                # Calculate losses
-                total_loss = torch.zeros(1).cuda()
-                loss_dict = {}
-                self._compute_loss(total_loss, loss_dict, x,
-                                   x_reconst, mu, log_var)
-
-                # Backprop and optimize
-                self.optimizer.zero_grad()
-                total_loss.backward()
-                self.optimizer.step()
-                self.scheduler.step()
-                loss_dict["total_loss"] = total_loss.item()
-                train_meter.add(loss_dict)
-
-                mean_loss = train_meter.get(loss_dict.keys())
-                # Log and eval here.
-                if (iteration + 1) % 10 == 0:
-                    print("Epoch[{}/{}], Step [{}/{}], Reconst Loss: {:.4f}, KL Div: {:.4f}"
-                          .format(epoch + 1, cfg.num_epoch, iteration + 1, len(self.train_loader),
-                                  mean_loss["reconstruction_loss"], mean_loss["kl_divergence_loss"]))
-
-            self.model.eval()
-            with torch.no_grad():
-                # Save the sampled images
-                z = torch.randn(cfg.batch_size,
-                                cfg.model.params.z_dim).cuda()
-                out = self.model.decode(z).view(-1, 1, 28, 28)
-                save_image(out, os.path.join(
-                    self.sample_dir, 'sampled-{}.png'.format(epoch+1)))
-
-                # Save the reconstructed images
-                out, _, _ = self.model(x)
-                x_concat = torch.cat(
-                    [x.view(-1, 1, 28, 28), out.view(-1, 1, 28, 28)], dim=3)
-                save_image(x_concat, os.path.join(
-                    self.sample_dir, 'reconst-{}.png'.format(epoch+1)))
-
-    def _compute_loss(self, total_loss, loss_dict, x, x_reconst, mu, log_var):
-        for item in self.losses.items():
-            # item: (key, value)
-            # key: the illustrative name of the loss
-            # value: includes loss function type and its parameters
-            if item[0] == "reconstruction_loss":
-                tmp_loss = item[1]["loss_func"](x_reconst, x)
-
-            if item[0] == "kl_divergence_loss":
-                tmp_loss = item[1]["loss_func"](log_var, mu)
-            loss_dict[item[0]] = tmp_loss.item()
-            total_loss += self.losses[item[0]]["weight"] * tmp_loss
-
-
-class MAERunner(BaseRunner):
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader):
-        super().__init__(model, optimizer, losses, scheduler, train_loader, val_loader)
-        self.loss_scaler = NativeScaler()
-
-    @staticmethod
-    def train_one_epoch(model: torch.nn.Module,
-                        data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                        device: torch.device, epoch: int, loss_scaler,
-                        log_writer=None,
-                        cfg=None):
-        model.train(True)
-        metric_logger = misc.MetricLogger(delimiter="  ")
-        metric_logger.add_meter('lr', misc.SmoothedValue(
-            window_size=1, fmt='{value:.6f}'))
-        header = 'Epoch: [{}]'.format(epoch)
-        print_freq = 20
-        
-        accum_iter = cfg.accum_iter
-
-        optimizer.zero_grad()
-
-        if log_writer is not None:
-            print('log_dir: {}'.format(log_writer.log_dir))
-
-        for data_iter_step, samples in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-            # we use a per iteration (instead of per epoch) lr scheduler
-            if data_iter_step % accum_iter == 0:
-                lr_sched.adjust_learning_rate(
-                    optimizer, data_iter_step / len(data_loader) + epoch, cfg)
-            if isinstance(samples, dict):
-                for key in samples.keys():
-                    samples[key] = samples[key].to(device, non_blocking=True)
-            else:
-                samples = samples.to(device, non_blocking=True)
-            
-            with torch.cuda.amp.autocast():
-                # loss, _, _ = model(samples, mask_ratio=cfg.mask_ratio)
-                loss, _, _ = model(samples)
-
-            loss_value = loss.item()
-
-            if not math.isfinite(loss_value):
-                print("Loss is {}, stopping training".format(loss_value))
-                sys.exit(1)
-
-            loss /= accum_iter
-            loss_scaler(loss, optimizer, parameters=model.parameters(),
-                        update_grad=(data_iter_step + 1) % accum_iter == 0)
-            if (data_iter_step + 1) % accum_iter == 0:
-                optimizer.zero_grad()
-
-            torch.cuda.synchronize()
-            
-            metric_logger.update(loss=loss_value)
-
-            lr = optimizer.param_groups[0]["lr"]
-            metric_logger.update(lr=lr)
-
-            loss_value_reduce = misc.all_reduce_mean(loss_value)
-            if log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
-                """ We use epoch_1000x as the x-axis in tensorboard.
-                This calibrates different curves when batch size changes.
-                """
-                epoch_1000x = int(
-                    (data_iter_step / len(data_loader) + epoch) * 1000)
-                log_writer.add_scalar(
-                    'train_loss', loss_value_reduce, epoch_1000x)
-                log_writer.add_scalar('lr', lr, epoch_1000x)
-
-        # gather the stats from all processes
-        metric_logger.synchronize_between_processes()
-        print("Averaged stats:", metric_logger)
-        return {k: meter.global_avg for k, meter in metric_logger.meters.items()}
-
-    def train(self, cfg):
+    def train(self):
+        cfg = self.train_cfg
         os.makedirs(cfg.log_dir, exist_ok=True)
         if cfg.log_dir is not None:
             self.log_writer = SummaryWriter(log_dir=cfg.log_dir)
@@ -196,39 +62,170 @@ class MAERunner(BaseRunner):
             self.model = torch.nn.parallel.DistributedDataParallel(
                 self.model, device_ids=[cfg.gpu], find_unused_parameters=True)
             self.model_without_ddp = self.model.module
-        
-        start_epoch = 0    
+
+        start_epoch = 1
         if cfg.resume is not None:
-            start_epoch = misc.load_model_to_resume(cfg, self.model, optimizer=self.optimizer, loss_scaler=self.loss_scaler)
-        
+            start_epoch = misc.load_model_to_resume(
+                cfg, self.model, optimizer=self.optimizer, loss_scaler=self.loss_scaler)
+
         self.model.train()
         start_time = time.time()
-        for epoch in range(start_epoch, cfg.num_epochs):
+        if not os.path.exists(cfg.output_dir):
+            os.makedirs(cfg.output_dir)
+
+        for epoch in range(start_epoch, cfg.num_epochs + 1):
+            self.epoch = epoch
             if cfg.distributed:
                 self.train_loader.sampler.set_epoch(epoch)
-            train_stats = self.train_one_epoch(
-                self.model, self.train_loader,
-                self.optimizer, cfg.device, epoch, self.loss_scaler,
-                log_writer=self.log_writer,
-                cfg=cfg
-            )
-            if not os.path.exists(cfg.output_dir):
-                os.makedirs(cfg.output_dir)
-            if cfg.output_dir and (epoch % cfg.saving_interval == 0 or epoch + 1 == cfg.num_epochs) and epoch > cfg.start_saving_epoch:
+
+            self.train_one_epoch()
+
+            if cfg.output_dir and (epoch % cfg.saving_interval == 0 or epoch == cfg.num_epochs) and epoch >= cfg.start_saving_epoch:
                 misc.save_model(
                     args=cfg, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
 
-            log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                         'epoch': epoch, }
-
-            if cfg.output_dir and misc.is_main_process():
-                if self.log_writer is not None:
-                    self.log_writer.flush()
-                with open(os.path.join(cfg.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
-                    f.write(json.dumps(log_stats) + "\n")
-
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('Training time {}'.format(total_time_str))
-        
+        logger.info('Training time {}'.format(total_time_str))
+
+
+class MAERunner(BaseRunner):
+    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
+        super().__init__(model, optimizer, losses, scheduler,
+                         train_loader, val_loader, train_cfg, val_cfg, test_cfg)
+        self.loss_scaler = NativeScaler()
+        self.train_cfg = train_cfg
+
+    def train_one_epoch(self):
+        cfg = self.train_cfg
+        self.model.train(True)
+        metric_logger = misc.MetricLogger(delimiter="  ")
+        metric_logger.add_meter('lr', misc.SmoothedValue(
+            window_size=1, fmt='{value:.6f}'))
+        header = 'Epoch: [{}]'.format(self.epoch)
+        print_freq = 20
+
+        accum_iter = cfg.accum_iter
+
+        self.optimizer.zero_grad()
+
+        if self.log_writer is not None:
+            logger.info('log_dir: {}'.format(self.log_writer.log_dir))
+
+        for data_iter_step, samples in enumerate(metric_logger.log_every(self.train_loader, print_freq, header)):
+            # we use a per iteration (instead of per epoch) lr scheduler
+            if data_iter_step % accum_iter == 0:
+                lr_sched.adjust_learning_rate(
+                    self.optimizer, data_iter_step / len(self.train_loader) + self.epoch, cfg)
+            if isinstance(samples, dict):
+                for key in samples.keys():
+                    samples[key] = samples[key].to(
+                        self.device, non_blocking=True)
+            else:
+                samples = samples.to(self.device, non_blocking=True)
+
+            with torch.cuda.amp.autocast():
+                loss, _, _ = self.model(samples)
+
+            loss_value = loss.item()
+
+            if not math.isfinite(loss_value):
+                logger.error(
+                    "Loss is {}, stopping training".format(loss_value))
+                sys.exit(1)
+
+            loss /= accum_iter
+            self.loss_scaler(loss, self.optimizer, parameters=self.model.parameters(),
+                             update_grad=(data_iter_step + 1) % accum_iter == 0)
+            if (data_iter_step + 1) % accum_iter == 0:
+                self.optimizer.zero_grad()
+
+            torch.cuda.synchronize()
+
+            metric_logger.update(loss=loss_value)
+
+            lr = self.optimizer.param_groups[0]["lr"]
+            metric_logger.update(lr=lr)
+
+            loss_value_reduce = misc.all_reduce_mean(loss_value)
+            if self.log_writer is not None and (data_iter_step + 1) % accum_iter == 0:
+                """ We use epoch_1000x as the x-axis in tensorboard.
+                This calibrates different curves when batch size changes.
+                """
+                epoch_1000x = int(
+                    (data_iter_step / len(self.train_loader) + self.epoch) * 1000)
+                self.log_writer.add_scalar(
+                    'train_loss', loss_value_reduce, epoch_1000x)
+                self.log_writer.add_scalar('lr', lr, epoch_1000x)
+
+        # gather the stats from all processes
+        metric_logger.synchronize_between_processes()
+        logger.info("Averaged stats:", metric_logger)
+        train_stats = {k: meter.global_avg for k,
+                       meter in metric_logger.meters.items()}
+        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                     'epoch': self.epoch, }
+
+        if cfg.output_dir and misc.is_main_process():
+            if self.log_writer is not None:
+                self.log_writer.flush()
+            with open(os.path.join(cfg.output_dir, "log.txt"), mode="a", encoding="utf-8") as f:
+                f.write(json.dumps(log_stats) + "\n")
+
+
+class SemSegRunner(BaseRunner):
+    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
+        super().__init__(model, optimizer, losses, scheduler,
+                         train_loader, val_loader, train_cfg, val_cfg, test_cfg)
+        self.train_cfg = train_cfg
+        self.loss_scaler = None
+        niters_per_epoch = len(self.train_loader)
+        total_iteration = self.train_cfg.num_epochs * niters_per_epoch
+        self.scheduler = lr_policy.WarmUpPolyLR(
+            train_cfg.base_lr, train_cfg.lr_power, total_iteration, niters_per_epoch * train_cfg.warm_up_epoch)
+
+    def train_one_epoch(self):
+        cfg = self.train_cfg
+        self.model.train(True)
+        sum_loss = 0
+        for data_iter_step, samples in enumerate(self.train_loader):
+            rgb = samples["rgb"].cuda(non_blocking=True)
+            depth = samples["depth"].cuda(non_blocking=True)
+            label = samples["seglabel"].cuda(non_blocking=True)
+
+            aux_rate = 0.2
+            loss = self.model(rgb, depth, label)
+            if cfg.distributed:
+                reduce_loss = all_reduce_tensor(
+                    loss, world_size=cfg.world_size)
+
+            self.optimizer.zero_grad()
+            self.losses.backward()
+            self.optimizer.step()
+
+            # TODO: Make this lr scheduler more efficient
+            current_step = (self.epoch - 1) * \
+                len(self.train_loader) + data_iter_step
+            lr = self.scheduler.get_lr(current_step)
+
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
+
+            if cfg.distributed:
+                sum_loss += reduce_loss.item()
+                print_str = 'Epoch {}/{}'.format(self.epoch, cfg.num_epochs) \
+                    + ' Iter {}/{}:'.format(data_iter_step + 1, len(self.train_loader)) \
+                    + ' lr=%.4e' % lr \
+                    + ' loss=%.4f total_loss=%.4f' % (reduce_loss.item(), (sum_loss / (data_iter_step + 1)))
+            else:
+                sum_loss += loss
+                print_str = 'Epoch {}/{}'.format(self.epoch, cfg.num_epochs) \
+                    + ' Iter {}/{}:'.format(data_iter_step + 1, len(self.train_loader)) \
+                    + ' lr=%.4e' % lr \
+                    + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (data_iter_step + 1)))
+
+            del loss
+        if (cfg.distributed and (cfg.local_rank == 0)) or (not cfg.distributed):
+            self.log_writer.add_scalar(
+                'train_loss', sum_loss / len(self.train_loader), self.epoch)

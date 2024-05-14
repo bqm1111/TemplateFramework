@@ -98,8 +98,3 @@ train:
   output_dir: output_dir/dual_swin_tiny_unnormalized
   model_folder: ~
 
-val:
-  # Dataset
-  dataset: ~
-test:
-  need_test: False

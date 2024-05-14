@@ -11,7 +11,13 @@ from models.backbone.dual_swin_mae import (
     dual_swinmae_s,
     dual_swinmae_b,
 )
-from .runner import BaseRunner, VAERunner, MAERunner
+from models.backbone.dual_swin_semseg import (
+    dual_swin_semseg_b,
+    dual_swin_semseg_s,
+    dual_swin_semseg_t,
+)
+from models.decoders import MLPDecoderHead, DeepLabV3Plus, UPerHead, FCNHead
+from .runner import BaseRunner, MAERunner, SemSegRunner
 
 # from .optimizer import BaseOptimizer
 from .scheduler import WarmupMultiStepLR
@@ -33,17 +39,39 @@ AVAI_MODEL = {
     "dual_swinmae_b": dual_swinmae_b,
     "dual_swinmae_s": dual_swinmae_s,
 }
-# AVAI_OPT = {'base_opt': BaseOptimizer, 'sgd': torch.optim.SGD, 'adam': torch.optim.Adam}
+AVAI_BACKBONE = {
+    "swin_s": dual_swin_semseg_s,
+    "swin_b": dual_swin_semseg_b,
+    "swin_t": dual_swin_semseg_t,
+}
+AVAI_DECODER = {
+    "mlp": MLPDecoderHead,
+    "uper": UPerHead,
+    "fcn": FCNHead,
+    "deeplabv3": DeepLabV3Plus,
+}
 AVAI_OPT = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
 }
-AVAI_RUNNER = {"base_runner": BaseRunner, "vae": VAERunner, "mae": MAERunner}
+AVAI_RUNNER = {"base_runner": BaseRunner, "mae": MAERunner, "semseg": SemSegRunner}
+
+
+def get_decoder(model_name, **kwargs):
+    if model_name not in AVAI_MODEL:
+        print("not supported model name, please implement it first.")
+    return AVAI_MODEL[model_name](**kwargs).cuda()
+
+
+def get_backbone(model_name, **kwargs):
+    if model_name not in AVAI_MODEL:
+        print("not supported model name, please implement it first.")
+    return AVAI_BACKBONE[model_name](**kwargs).cuda()
 
 
 def get_model(model_name, **kwargs):
-    if model_name not in AVAI_MODEL:
+    if model_name not in AVAI_BACKBONE:
         print("not supported model name, please implement it first.")
     return AVAI_MODEL[model_name](**kwargs).cuda()
 
@@ -54,10 +82,10 @@ def get_optimizer(opt_name, **kwargs):
     return AVAI_OPT[opt_name](**{k: v for k, v in kwargs.items() if v is not None})
 
 
-def get_runner(runner_name):
-    if runner_name not in AVAI_RUNNER:
+def get_runner(cfg):
+    if cfg.runner_name not in AVAI_RUNNER:
         print("not supported runner name, please implement it first.")
-    return AVAI_RUNNER[runner_name]
+    return AVAI_RUNNER[cfg.runner_name]
 
 
 def get_scheduler(

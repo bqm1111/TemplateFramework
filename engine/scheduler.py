@@ -74,3 +74,52 @@ def _get_warmup_factor_at_iter(
         return warmup_factor * (1 - alpha) + alpha
     else:
         raise ValueError("Unknown warmup method: {}".format(method))
+
+
+class WarmUpPolyLR(_LRScheduler):
+    def __init__(self, optimizer: Optimizer, start_lr, lr_power, total_iters, warmup_steps, last_epoch: int = -1,
+                 **kwargs,) -> None:
+        self.start_lr = start_lr
+        self.lr_power = lr_power
+        self.total_iters = total_iters + 0.0
+        self.warmup_steps = warmup_steps
+        super().__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        if self.last_epoch < self.warmup_steps:
+            return [self.start_lr * (self.last_epoch / self.warmup_steps) for base_lr in self.base_lrs]
+        else:
+            return [self.start_lr * (
+                (1 - float(self.last_epoch) / self.total_iters) ** self.lr_power) for base_lr in self.base_lrs]
+
+# Example usage:
+if __name__ == "__main__":
+    import matplotlib.pyplot as plt
+    model = torch.nn.Linear(10, 2)
+    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+    scheduler = WarmUpPolyLR(optimizer, start_lr=0.15, lr_power=0.9, total_iters=1000, warmup_steps=40)
+
+    # scheduler = WarmUpPolyLR(optimizer, target_lr=0.15, max_iters=1000, power=0.9, warmup_iters=40)
+
+    epochs = 1000
+    lrs = []
+
+    for epoch in range(epochs):
+        # Simulate a training step
+        optimizer.step()  # Update weights (normally you would include your loss.backward() call here)
+
+        # Step the scheduler
+        scheduler.step()
+
+        # Record the learning rate
+        lrs.append(scheduler.get_lr()[0])
+        print(f"Epoch {epoch+1}, LR: {scheduler.get_lr()}")
+
+    # Plot the learning rate schedule
+    plt.figure(figsize=(10, 5))
+    plt.plot(range(1, epochs + 1), lrs, marker='o')
+    plt.title("Custom Step LR Scheduler")
+    plt.xlabel("Epoch")
+    plt.ylabel("Learning Rate")
+    plt.grid(True)
+    plt.show()

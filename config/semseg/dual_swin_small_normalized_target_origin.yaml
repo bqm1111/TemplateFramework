@@ -1,5 +1,5 @@
 train:
-  experiment_name: "mae"
+  experiment_name: "semseg"
   # Runner
   num_epochs: 4000
   start_saving_epoch: 1000
@@ -7,7 +7,7 @@ train:
   max_iter: ~
   log_iter: ~
   eval_iter: ~
-  runner_name: mae
+  runner_name: semseg
   distributed: False
   device: cuda
   resume: ~
@@ -27,10 +27,11 @@ train:
 
   # Model
   model:
-    name: "dual_swinmae_s"
-    params:
-      norm_pix_loss: True
-      target_type: "origin"
+    backbone:
+      name: "dual_swinmae_s"
+    decoder:
+      name: "mlp"
+    aux_head: ~
   # Dataset
   dataset:
     name: "sunrgbd"
@@ -67,7 +68,7 @@ train:
     target_transforms:
       normalize:
         params:
-          # sunrgbd depth
+          # sunrgbd depth anything
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
 
@@ -94,7 +95,12 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_small_normalized_target_depth_anything
-  output_dir: output_dir/dual_swin_small_normalized_target_depth_anything
+  log_dir: log/dual_swin_small_normalized_target_origin
+  output_dir: output_dir/dual_swin_small_normalized_target_origin
   model_folder: ~
 
+val:
+  # Dataset
+  dataset: ~
+test:
+  need_test: False

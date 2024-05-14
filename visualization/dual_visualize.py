@@ -8,11 +8,6 @@ from models.backbone import dual_swin_mae
 from utils.logger import get_root_logger
 import os
 
-# define the utils
-# mean: [0.4939, 0.4259, 0.4036]
-# std: [0.2896, 0.2954, 0.3072]
-
-
 parser = argparse.ArgumentParser()
 parser.add_argument("--ckpt_path", type=str, help="Path to checkpoint")
 parser.add_argument(
@@ -31,6 +26,10 @@ if __name__ == "__main__":
     NORM_DEPTH = {
         "mean": np.array([0.4132, 0.4132, 0.4132]),
         "std": np.array([0.2703, 0.2703, 0.2703]),
+    }
+    NORM_DEPTH_ANYTHING = {
+        "mean": np.array([0.4975, 0.4975, 0.4975]),
+        "std": np.array([0.2218, 0.2218, 0.2218]),
     }
 
     def show_image(image, use_norm, norm, title=""):
@@ -59,17 +58,20 @@ if __name__ == "__main__":
     def run_model(img, model, use_norm):
         x = img["rgb"]
         x_d = img["depth"]
-
+        depth_anything = img["depth_anything"]
         x = torch.tensor(x)
-        # make it a batch-like
         x = x.unsqueeze(dim=0)
         x = torch.einsum("nhwc->nchw", x)
 
         x_d = torch.tensor(x_d)
         x_d = x_d.unsqueeze(dim=0)
         x_d = torch.einsum("nhwc->nchw", x_d)
+        
+        depth_anything = torch.tensor(depth_anything)
+        depth_anything = depth_anything.unsqueeze(dim=0)
+        depth_anything = torch.einsum("nhwc->nchw", depth_anything)
 
-        img = {"rgb": x.float(), "depth": x_d.float()}
+        img = {"rgb": x.float(), "depth": x_d.float(), "depth_anything": depth_anything}
         # run MAE
         # loss, y, mask = model(x.float(), mask_ratio=0.75)
         loss, y, mask = model(img)
@@ -130,6 +132,7 @@ if __name__ == "__main__":
         data_path, "rawDepthAnything", file_name + ".npy"
     )
 
+    # Preprocess inputs
     rgb = Image.open(rgb_path)
     rgb = rgb.resize((224, 224))
     rgb = np.array(rgb) / 255.0
@@ -140,13 +143,15 @@ if __name__ == "__main__":
     raw_depth_anything = np.load(raw_depth_anything_path)
     raw_depth_anything = process_depth_img(raw_depth_anything)
 
-    # normalize by ImageNet mean and std
+    # normalize by mean and std
     rgb = rgb - NORM_RGB["mean"]
     rgb = rgb / NORM_RGB["std"]
     depth = depth - NORM_DEPTH["mean"]
     depth = depth / NORM_DEPTH["std"]
+    raw_depth_anything = raw_depth_anything - NORM_DEPTH_ANYTHING["mean"]
+    raw_depth_anything = raw_depth_anything / NORM_DEPTH_ANYTHING["std"]
 
-    img = {"rgb": rgb, "depth": depth, "deph_anything": raw_depth_anything}
+    inputs = {"rgb": rgb, "depth": depth, "depth_anything": raw_depth_anything}
     plt.rcParams["figure.figsize"] = [5, 5]
 
     chkpt_dir = os.path.join(args.ckpt_path, "checkpoint-" + str(args.epoch) + ".pth")
@@ -154,5 +159,5 @@ if __name__ == "__main__":
     print("Model loaded.")
     torch.manual_seed(2)
     print("MAE with pixel reconstruction:")
-    run_model(img, model_mae, args.use_norm)
+    run_model(inputs, model_mae, args.use_norm)
     plt.show()

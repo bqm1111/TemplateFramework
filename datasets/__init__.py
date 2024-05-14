@@ -22,8 +22,6 @@ logger = get_root_logger()
 
 
 def get_dataset(cfg):
-    if cfg is None:
-        return None
     name = cfg.name
     if name not in ALL_DATASETS:
         logger.warning(

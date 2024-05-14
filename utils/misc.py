@@ -19,6 +19,9 @@ from pathlib import Path
 import torch
 import torch.distributed as dist
 from torch._six import inf
+from utils.logger import get_root_logger
+
+logger = get_root_logger()
 
 
 class SmoothedValue(object):
@@ -149,7 +152,7 @@ class MetricLogger(object):
                 eta_seconds = iter_time.global_avg * (len(iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
-                    print(
+                    logger.info(
                         log_msg.format(
                             i,
                             len(iterable),
@@ -161,7 +164,7 @@ class MetricLogger(object):
                         )
                     )
                 else:
-                    print(
+                    logger.info(
                         log_msg.format(
                             i,
                             len(iterable),
@@ -175,7 +178,7 @@ class MetricLogger(object):
             end = time.time()
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print(
+        logger.info(
             "{} Total time: {} ({:.4f} s / it)".format(
                 header, total_time_str, total_time / len(iterable)
             )
@@ -249,7 +252,7 @@ def init_distributed_mode(args):
         args.rank = int(os.environ["SLURM_PROCID"])
         args.gpu = args.rank % torch.cuda.device_count()
     else:
-        print("Not using distributed mode")
+        logger.info("Not using distributed mode")
         setup_for_distributed(is_master=True)  # hack
         args.distributed = False
         return
@@ -258,7 +261,7 @@ def init_distributed_mode(args):
 
     torch.cuda.set_device(args.gpu)
     args.dist_backend = "nccl"
-    print(
+    logger.info(
         "| distributed init (rank {}): {}, gpu {}".format(
             args.rank, args.dist_url, args.gpu
         ),
@@ -348,12 +351,21 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
 
             save_on_master(to_save, checkpoint_path)
     else:
-        client_state = {"epoch": epoch}
-        model.save_checkpoint(
-            save_dir=args.output_dir,
-            tag="checkpoint-%s" % epoch_name,
-            client_state=client_state,
-        )
+        # client_state = {"epoch": epoch}
+        # model.save_checkpoint(
+        #     save_dir=args.output_dir,
+        #     tag="checkpoint-%s" % epoch_name,
+        #     client_state=client_state,
+        # )
+        checkpoint_paths = [output_dir / ("checkpoint-%s.pth" % epoch_name)]
+        for checkpoint_path in checkpoint_paths:
+            to_save = {
+                "model": model_without_ddp.state_dict(),
+                "optimizer": optimizer.state_dict(),
+                "epoch": epoch,
+                "args": args,
+            }
+
 
 
 def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):
@@ -365,7 +377,7 @@ def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):
         else:
             checkpoint = torch.load(args.resume, map_location="cpu")
         model_without_ddp.load_state_dict(checkpoint["model"])
-        print("Resume checkpoint %s" % args.resume)
+        logger.info("Resume checkpoint %s" % args.resume)
         if (
             "optimizer" in checkpoint
             and "epoch" in checkpoint
@@ -375,7 +387,7 @@ def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):
             epoch = checkpoint["epoch"] + 1
             if "scaler" in checkpoint:
                 loss_scaler.load_state_dict(checkpoint["scaler"])
-            print("With optim & sched!")
+            logger.info("With optim & sched!")
             return epoch
 
 
@@ -388,3 +400,11 @@ def all_reduce_mean(x):
         return x_reduce.item()
     else:
         return x
+
+
+def all_reduce_tensor(tensor, op=dist.ReduceOp.SUM, world_size=1):
+    tensor = tensor.clone()
+    dist.all_reduce(tensor, op)
+    tensor.div_(world_size)
+
+    return tensor

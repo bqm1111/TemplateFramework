@@ -1,14 +1,8 @@
 import torch
 import torch.nn as nn
-import numpy as np
-from einops import rearrange
-import time
-from collections import OrderedDict
 
 from models.backbone.swin import (
     BasicLayer,
-    PatchExpanding,
-    BasicLayer_up,
     PatchEmbedding,
     PatchMerging,
 )
@@ -16,6 +10,7 @@ from models.pos_embed import get_2d_sincos_pos_embed
 from models.net_utils import FeatureFusionModule as FFM
 from models.net_utils import FeatureRectifyModule as FRM
 from utils.logger import get_root_logger
+from utils.checkpoint import load_dual_branch_model_from_mae_pretrained
 
 logger = get_root_logger()
 
@@ -27,8 +22,6 @@ class DualSwinSemSeg(nn.Module):
         patch_size: int = 4,
         mask_ratio: float = 0.75,
         in_chans: int = 3,
-        decoder_embed_dim=768,
-        norm_pix_loss=False,
         depths: tuple = (2, 2, 6, 2),
         embed_dim: int = 96,
         num_heads: tuple = (3, 6, 12, 24),
@@ -44,9 +37,15 @@ class DualSwinSemSeg(nn.Module):
         out_indices=(0, 1, 2, 3),
         frozen_stages=-1,
         use_checkpoint=False,
+        ape=False,
+        norm_pix_loss=False,
+        target_type: str = "origin",
     ):
 
         super().__init__()
+        logger.info(f"norm_pix_loss = {norm_pix_loss}")
+        logger.info(f"target_type = {target_type}")
+
         self.mask_ratio = mask_ratio
         assert img_size % patch_size == 0
         self.num_patches = (img_size // patch_size) ** 2
@@ -54,7 +53,6 @@ class DualSwinSemSeg(nn.Module):
         self.norm_pix_loss = norm_pix_loss
         self.num_layers = len(depths)
         self.depths = depths
-        self.decoder_embed_dim = decoder_embed_dim
         self.embed_dim = embed_dim
         self.num_heads = num_heads
         self.drop_path = drop_path_rate
@@ -66,6 +64,9 @@ class DualSwinSemSeg(nn.Module):
         self.norm_layer = norm_layer
         self.norm_fuse = norm_fuse
         self.out_indices = out_indices
+        self.target_type = target_type
+        self.frozen_stages = frozen_stages
+        self.ape = ape
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
@@ -80,29 +81,17 @@ class DualSwinSemSeg(nn.Module):
             embed_dim=embed_dim,
             norm_layer=norm_layer if patch_norm else None,
         )
-
-        self.pos_embed = nn.Parameter(
-            torch.zeros(1, self.num_patches, embed_dim), requires_grad=False
-        )
+        if self.ape:
+            self.pos_embed = nn.Parameter(
+                torch.zeros(1, self.num_patches, embed_dim), requires_grad=False
+            )
 
         self.pos_drop = nn.Dropout(p=drop_rate)
         self.pos_drop_d = nn.Dropout(p=drop_rate)
-        self.mask_token = nn.Parameter(torch.zeros(1, 1, embed_dim))
 
         self.layers = self.build_layers()
         self.layers_d = self.build_layers()
         self.downsample, self.downsample_d = self.build_downsample_layers()
-        self.norm_up = norm_layer(embed_dim)
-        self.decoder_pred = nn.Linear(
-            decoder_embed_dim // 8, patch_size**2 * in_chans, bias=True
-        )
-
-        self.layers_up = self.build_layers_up()
-        self.layers_up_d = self.build_layers_up()
-        self.norm_up_d = norm_layer(embed_dim)
-        self.decoder_pred_d = nn.Linear(
-            decoder_embed_dim // 8, patch_size**2 * in_chans, bias=True
-        )
 
         num_features = [int(embed_dim * 2**i) for i in range(self.num_layers)]
         self.num_features = num_features
@@ -117,8 +106,7 @@ class DualSwinSemSeg(nn.Module):
             layer_name_d = f"norm_d{i_layer}"
             self.add_module(layer_name_d, layer_d)
 
-        self.initialize_weights()
-        # self._freeze_stages()
+        self._freeze_stages()
 
     def _freeze_stages(self):
         if self.frozen_stages >= 0:
@@ -127,7 +115,7 @@ class DualSwinSemSeg(nn.Module):
                 param.requires_grad = False
 
         if self.frozen_stages >= 1 and self.ape:
-            self.absolute_pos_embed.requires_grad = False
+            self.pos_embed.requires_grad = False
 
         if self.frozen_stages >= 2:
             self.pos_drop.eval()
@@ -137,137 +125,27 @@ class DualSwinSemSeg(nn.Module):
                 for param in m.parameters():
                     param.requires_grad = False
 
-    def initialize_weights(self, pretrained=None):
-        pos_embed = get_2d_sincos_pos_embed(
-            self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
-        )
-        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+    def init_weights(self, pretrained=None):
+        if self.ape:
+            pos_embed = get_2d_sincos_pos_embed(
+                self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
+            )
+            self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
 
-        torch.nn.init.normal_(self.mask_token, std=0.02)
         if isinstance(pretrained, str):
-            load_dualpath_model(self, pretrained)
+            load_dual_branch_model_from_mae_pretrained(self, pretrained)
         else:
             self.apply(self._init_weights)
 
     @staticmethod
     def _init_weights(m):
         if isinstance(m, nn.Linear):
-
             torch.nn.init.xavier_uniform_(m.weight)
             if isinstance(m, nn.Linear) and m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
-
-    def patchify(self, imgs):
-        """
-        imgs: (N, 3, H, W)
-        x: (N, L, patch_size**2 *3)
-        """
-        p = self.patch_size
-        assert imgs.shape[2] == imgs.shape[3] and imgs.shape[2] % p == 0
-
-        h = w = imgs.shape[2] // p
-        x = imgs.reshape(shape=(imgs.shape[0], 3, h, p, w, p))
-        x = torch.einsum("nchpwq->nhwpqc", x)
-        x = x.reshape(imgs.shape[0], h * w, p**2 * 3)
-        return x
-
-    def unpatchify(self, x):
-        """
-        x: (N, L, patch_size**2 *3)
-        imgs: (N, 3, H, W)
-        """
-        p = self.patch_size
-        h = w = int(x.shape[1] ** 0.5)
-        assert h * w == x.shape[1]
-
-        x = x.reshape(shape=(x.shape[0], h, w, p, p, 3))
-        x = torch.einsum("nhwpqc->nchpwq", x)
-        imgs = x.reshape(x.shape[0], 3, h * p, h * p)
-        return imgs
-
-    def window_masking(
-        self,
-        x: torch.Tensor,
-        r: int = 4,
-        remove: bool = False,
-        mask_len_sparse: bool = False,
-    ):
-        """
-        The new masking method, masking the adjacent r*r number of patches together
-
-        Optional whether to remove the mask patch,
-        if so, the return value returns one more sparse_restore for restoring the order to x
-
-        Optionally, the returned mask index is sparse length or original length,
-        which corresponds to the different size choices of the decoder when restoring the image
-
-        x: [N, L, D]
-        r: There are r*r patches in a window
-        remove: Whether to remove the mask patch
-        mask_len_sparse: Whether the returned mask length is a sparse short length
-        """
-        x = rearrange(x, "B H W C -> B (H W) C")
-        B, L, D = x.shape
-        assert int(L**0.5 / r) == L**0.5 / r
-        d = int(L**0.5 // r)
-
-        noise = torch.rand(B, d**2, device=x.device)
-        sparse_shuffle = torch.argsort(noise, dim=1)
-        sparse_restore = torch.argsort(sparse_shuffle, dim=1)
-        sparse_keep = sparse_shuffle[:, : int(d**2 * (1 - self.mask_ratio))]
-
-        index_keep_part = (
-            torch.div(sparse_keep, d, rounding_mode="floor") * d * r**2
-            + sparse_keep % d * r
-        )
-        index_keep = index_keep_part
-        for i in range(r):
-            for j in range(r):
-                if i == 0 and j == 0:
-                    continue
-                index_keep = torch.cat(
-                    [index_keep, index_keep_part + int(L**0.5) * i + j], dim=1
-                )
-
-        index_all = np.expand_dims(range(L), axis=0).repeat(B, axis=0)
-        index_mask = np.zeros([B, int(L - index_keep.shape[-1])], dtype=int)
-        for i in range(B):
-            index_mask[i] = np.setdiff1d(
-                index_all[i], index_keep.cpu().numpy()[i], assume_unique=True
-            )
-        index_mask = torch.tensor(index_mask, device=x.device)
-
-        index_shuffle = torch.cat([index_keep, index_mask], dim=1)
-        index_restore = torch.argsort(index_shuffle, dim=1)
-
-        if mask_len_sparse:
-            mask = torch.ones([B, d**2], device=x.device)
-            mask[:, : sparse_keep.shape[-1]] = 0
-            mask = torch.gather(mask, dim=1, index=sparse_restore)
-        else:
-            mask = torch.ones([B, L], device=x.device)
-            mask[:, : index_keep.shape[-1]] = 0
-            mask = torch.gather(mask, dim=1, index=index_restore)
-
-        if remove:
-            x_masked = torch.gather(
-                x, dim=1, index=index_keep.unsqueeze(-1).repeat(1, 1, D)
-            )
-            x_masked = rearrange(
-                x_masked, "B (H W) C -> B H W C", H=int(x_masked.shape[1] ** 0.5)
-            )
-            return x_masked, mask, sparse_restore
-        else:
-            x_masked = torch.clone(x)
-            for i in range(B):
-                x_masked[i, index_mask.cpu().numpy()[i, :], :] = self.mask_token
-            x_masked = rearrange(
-                x_masked, "B (H W) C -> B H W C", H=int(x_masked.shape[1] ** 0.5)
-            )
-            return x_masked, mask
 
     def build_FRM(self):
         layers = nn.ModuleList()
@@ -331,38 +209,7 @@ class DualSwinSemSeg(nn.Module):
             layers.append(layer)
         return layers
 
-    def build_layers_up(self):
-        layers_up = nn.ModuleList()
-        dpr = [
-            x.item() for x in torch.linspace(0, self.drop_rate, sum(self.depths))
-        ]  # stochastic depth decay rule
-
-        for i in range(self.num_layers):
-            index = self.num_layers - 1 - i
-            if i == 0:
-                layer = PatchExpanding(
-                    dim=self.decoder_embed_dim, norm_layer=self.norm_layer
-                )
-            else:
-                layer = BasicLayer_up(
-                    dim=self.embed_dim * 2**index,
-                    depth=self.depths[index],
-                    window_size=self.window_size,
-                    num_heads=self.num_heads[index],
-                    mlp_ratio=self.mlp_ratio,
-                    qkv_bias=self.qkv_bias,
-                    drop=self.drop_rate,
-                    drop_path=dpr[
-                        sum(self.depths[:index]) : sum(self.depths[: index + 1])
-                    ],
-                    attn_drop=self.attn_drop_rate,
-                    upsample=PatchExpanding if i < self.num_layers - 1 else None,
-                    norm_layer=self.norm_layer,
-                )
-            layers_up.append(layer)
-        return layers_up
-
-    def forward_encoder(self, x: torch.Tensor, x_d: torch.Tensor, mae_pretrain=True):
+    def forward_encoder(self, x: torch.Tensor, x_d: torch.Tensor):
         B, H, W, C = x.shape
         x = self.patch_embed(x)
         x_d = self.patch_embed_d(x_d)
@@ -370,8 +217,6 @@ class DualSwinSemSeg(nn.Module):
         x = self.pos_drop(x)
         x_d = self.pos_drop_d(x_d)
 
-        x, mask = self.window_masking(x, remove=False, mask_len_sparse=False)
-        x_d, mask_d = self.window_masking(x_d, remove=False, mask_len_sparse=False)
         outs = []
 
         for i in range(self.num_layers):
@@ -402,109 +247,13 @@ class DualSwinSemSeg(nn.Module):
                 out = self.FFMs[i](x_out, x_out_d)
 
                 outs.append(out)
-        if mae_pretrain:
-            return x, mask, x_d, mask_d
-        else:
-            return tuple(outs)
+        return tuple(outs)
 
-    def forward_decoder(self, x, x_d):
-        for layer in self.layers_up:
-            x = layer(x)
-        x = self.norm_up(x)
-        x = rearrange(x, "B H W C -> B (H W) C")
-        x = self.decoder_pred(x)
-
-        for layer in self.layers_up:
-            x_d = layer(x_d)
-        x_d = self.norm_up_d(x_d)
-        x_d = rearrange(x_d, "B H W C -> B (H W) C")
-        x_d = self.decoder_pred_d(x_d)
-
-        return x, x_d
-
-    def forward_loss(self, imgs, pred, mask):
-        """
-        imgs: [N, 3, H, W]
-        pred: [N, L, p*p*3]
-        mask: [N, L], 0 is keep, 1 is remove,
-        """
-        target = self.patchify(imgs)
-        if self.norm_pix_loss:
-            mean = target.mean(dim=-1, keepdim=True)
-            var = target.var(dim=-1, keepdim=True)
-            target = (target - mean) / (var + 1.0e-6) ** 0.5
-
-        loss = (pred - target) ** 2
-        loss = loss.mean(dim=-1)
-
-        loss = (loss * mask).sum() / mask.sum()
-        return loss
-
-    def forward(self, inputs: dict):
+    def forward(self, inputs):
         x = inputs["rgb"]
         x_d = inputs["depth"]
-        latent, mask, latent_d, mask_d = self.forward_encoder(x, x_d)
-        pred, pred_d = self.forward_decoder(latent, latent_d)
-        loss = self.forward_loss(x, pred, mask)
-        loss_d = self.forward_loss(x_d, pred_d, mask_d)
-        total_loss = 0.5 * loss + 0.5 * loss_d
-        return (
-            total_loss,
-            {"rgb": pred, "depth": pred_d},
-            {"rgb": mask, "depth": mask_d},
-        )
-
-
-def load_dualpath_model(model, model_file, is_restore=False):
-    # load raw state_dict
-    t_start = time.time()
-    if isinstance(model_file, str):
-        raw_state_dict = torch.load(model_file, map_location=torch.device("cpu"))
-        # raw_state_dict = torch.load(model_file)
-        if "model" in raw_state_dict.keys():
-            raw_state_dict = raw_state_dict["model"]
-    else:
-        raw_state_dict = model_file
-    # copy to  hha backbone
-    state_dict = {}
-    for k, v in raw_state_dict.items():
-        if k.find("downsample") >= 0 and k.find("layer") >= 0:
-            name = k.replace("downsample.", "")
-            name = name.replace("layers", "downsamples")
-            state_dict[name] = v
-            name = name.replace("downsamples", "downsamples_d")
-            state_dict[name] = v
-        elif k.find("patch_embed") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("patch_embed", "patch_embed_d")] = v
-        elif k.find("layer") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("layers", "layers_d")] = v
-        elif k.find("norm") >= 0:
-            state_dict[k] = v
-            state_dict[k.replace("norm", "norm_d")] = v
-
-    t_ioend = time.time()
-
-    if is_restore:
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = "module." + k
-            new_state_dict[name] = v
-        state_dict = new_state_dict
-
-    model.load_state_dict(state_dict, strict=False)
-
-    del state_dict
-    t_end = time.time()
-    logger.info(
-        "Load model, Time usage:\n\tIO: {}, initialize parameters: {}".format(
-            t_ioend - t_start, t_end - t_ioend
-        )
-    )
-
-    return model
-
+        outs = self.forward_encoder(x, x_d)
+        return outs
 
 class dual_swin_semseg_t(DualSwinSemSeg):
     def __init__(self, **kwargs):
@@ -513,7 +262,6 @@ class dual_swin_semseg_t(DualSwinSemSeg):
             patch_size=4,
             in_chans=3,
             decoder_embed_dim=768,
-            norm_pix_loss=False,
             embed_dim=96,
             depths=[2, 2, 6, 2],
             num_heads=[3, 6, 12, 24],
@@ -528,6 +276,7 @@ class dual_swin_semseg_t(DualSwinSemSeg):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 
@@ -537,8 +286,6 @@ class dual_swin_semseg_s(DualSwinSemSeg):
             img_size=224,
             patch_size=4,
             in_chans=3,
-            decoder_embed_dim=768,
-            norm_pix_loss=False,
             embed_dim=96,
             depths=[2, 2, 18, 2],
             num_heads=[3, 6, 12, 24],
@@ -553,6 +300,7 @@ class dual_swin_semseg_s(DualSwinSemSeg):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 
@@ -562,8 +310,6 @@ class dual_swin_semseg_b(DualSwinSemSeg):
             img_size=384,
             patch_size=4,
             in_chans=3,
-            decoder_embed_dim=1024,
-            norm_pix_loss=False,
             embed_dim=128,
             depths=[2, 2, 18, 2],
             num_heads=[4, 8, 16, 32],
@@ -578,10 +324,16 @@ class dual_swin_semseg_b(DualSwinSemSeg):
             out_indices=(0, 1, 2, 3),
             frozen_stages=-1,
             use_checkpoint=False,
+            **kwargs,
         )
 
 
 if __name__ == "__main__":
-    net = dual_swin_semseg_b()
-    inputs = {"rgb": torch.ones(1, 3, 384, 384), "depth": torch.ones(1, 3, 384, 384)}
+    net = dual_swin_semseg_s()
+    model_file = "output_dir/dual_swin_small_normalized/checkpoint-2880.pth"
+    load_dual_branch_model_from_mae_pretrained(net, model_file)
+    inputs = {"rgb": torch.ones(1, 3, 224, 224), "depth": torch.ones(1, 3, 224, 224)}
     y = net(inputs)
+    for out in y:
+        print(f"Output shape = {out.shape}")
+    
