@@ -45,13 +45,13 @@ train:
       root: "data/sunrgbd_trainval"
       split: "train"
     common_transforms:
+      RandomHorizontalFlip:
+        params: ~
       RandomResizedCrop:
         params:
           size: [224, 224]
           scale: [0.2, 1.0]
           interp_mode: 3
-      RandomHorizontalFlip:
-        params: ~
       to_tensor:
         params: ~
 

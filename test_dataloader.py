@@ -11,23 +11,17 @@ import torchvision.transforms.functional as F
 from utils.helper import show_pil_image
 
 if __name__ == "__main__":
-    # config = OmegaConf.load("config/mae.yaml")
-    # train_cfg = config.train
-    # dataset = get_dataset(train_cfg.dataset)
-    # train_loader = DataLoader(dataset, batch_size=1,
-    #                           shuffle=False, num_workers=4)
-    # for sample in train_loader:
-    #     numpy_image = sample.squeeze().numpy()
-    #     numpy_image = numpy_image.transpose(1, 2, 0)
-    #     # print(numpy_image)
-    #     show_pil_image("img", numpy_image)
-    #     if cv2.waitKey() == ord('q'):
-    #         break
-    filename = "data/sunrgbd_trainval/depth/000001.png"
+    config = OmegaConf.load("config/mae/dual_swin_small_normalized_target_origin.yaml")
+    train_cfg = config.train
+    dataset = get_dataset(train_cfg.dataset)
+    train_loader = DataLoader(dataset, batch_size=1,
+                              shuffle=False, num_workers=4)
+    for sample in train_loader:
+        numpy_image = sample["rgb"].squeeze().numpy()
+        numpy_image = numpy_image.transpose(1, 2, 0)
+        # print(numpy_image)
+        show_pil_image("img", numpy_image)
+        if cv2.waitKey() == ord('q'):
+            break
 
-    rgb = Image.open(filename)
-    rgb = np.array(rgb)
-    max_rgb = np.max(rgb)
-    cv2.imshow("img", (rgb / max_rgb * 255.0).astype(np.uint8))
-    cv2.waitKey()
 

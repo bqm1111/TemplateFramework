@@ -30,10 +30,11 @@ class DepthDataset(Dataset):
         self.rgb_path = os.path.join(self.root_dir, "image")
         self.depth_path = os.path.join(self.root_dir, "depth")
         self.label_path = os.path.join(self.root_dir, "seglabel")
-        self.raw_depth_anything_path = os.path.join(self.root_dir, "rawDepthAnything")
-        all_index_file = os.path.join(self.root_dir, split + "_data_idx.txt")
+        self.raw_depth_anything_path = os.path.join(
+            self.root_dir, "rawDepthAnything")
+        all_index_file = os.path.join(self.root_dir, split + ".txt")
         if not os.path.exists(all_index_file):
-            raise Exception(f"Split index file does not exist {all_index_file}")
+            raise Exception(f"File does not exist {all_index_file}")
 
         with open(all_index_file, "r") as f:
             self.all_index = [int(idx) for idx in f.readlines()]
@@ -66,7 +67,8 @@ class NYUv2Dataset(DepthDataset):
         rgb = Image.open(os.path.join(self.rgb_path, str(index) + ".jpg")).convert(
             "RGB"
         )
-        raw_depth = np.load(os.path.join(self.raw_depth_path, str(index) + ".npy"))
+        raw_depth = np.load(os.path.join(
+            self.raw_depth_path, str(index) + ".npy"))
         # Transform image
         if self.transforms is not None:
             rgb = self.transforms(rgb)
@@ -103,31 +105,36 @@ class SunRGBDDataset(DepthDataset):
             os.path.join(self.rgb_path, str(index + 1).zfill(6) + ".jpg")
         ).convert("RGB")
         depth = np.array(
-            Image.open(os.path.join(self.depth_path, str(index + 1).zfill(6) + ".png"))
+            Image.open(os.path.join(self.depth_path,
+                       str(index + 1).zfill(6) + ".png"))
         )
         raw_depth_anything = np.load(
-            os.path.join(self.raw_depth_anything_path, str(index + 1).zfill(6) + ".npy")
+            os.path.join(self.raw_depth_anything_path,
+                         str(index + 1).zfill(6) + ".npy")
         )
         depth = self.convert_raw_depth_to_3_channels_img(depth)
         raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
             raw_depth_anything
         )
+        label = cv2.imread(os.path.join(
+            self.label_path, str(index + 1).zfill(6) + ".png"), cv2.IMREAD_GRAYSCALE)
+
+        output = {"rgb": rgb, "depth": depth,
+                  "depth_anything": raw_depth_anything}
         if self.common_transforms is not None:
-            rgb = self.common_transforms(rgb)
-            depth = self.common_transforms(depth)
-            raw_depth_anything = self.common_transforms(raw_depth_anything)
+            output = self.common_transforms(**output)
+        
         # Transform image
         if self.transforms is not None:
-            rgb = self.transforms(rgb)
+            output["rgb"] = self.transforms(output["rgb"])
 
         if self.depth_transforms is not None:
-            depth = self.depth_transforms(depth)
+            output["depth"] = self.depth_transforms(output["depth"])
 
         if self.target_tranforms is not None:
-            raw_depth_anything = self.target_tranforms(raw_depth_anything)
+            output["depth_anything"] = self.target_tranforms(output["depth_anything"])
 
         # Return output as a dictionary
-        output = {"rgb": rgb, "depth": depth, "depth_anything": raw_depth_anything}
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
         if self.depth_transforms is not None:

@@ -4,7 +4,7 @@ model:
   params:
     norm_pix_loss: False
     target_type: "origin"
-    
+
 train:
   experiment_name: "mae"
   # Runner
@@ -17,7 +17,7 @@ train:
   runner_name: mae
   distributed: False
   device: cuda
-  resume: output_dir/dual_swin_small_unnormalized_target_origin/checkpoint-1040.pth
+  resume: output_dir/dual_swin_small_unnormalized_target_origin/checkpoint-1160.pth
 
   # Dataloader
   batch_size: 32
@@ -39,17 +39,18 @@ train:
       root: "data/sunrgbd_trainval"
       split: "train"
     common_transforms:
-      RandomResizedCrop:
+      random_resized_crop:
         params:
           size: [224, 224]
           scale: [0.2, 1.0]
           interp_mode: 3
-      RandomHorizontalFlip:
-        params: ~
-      to_tensor:
-        params: ~
+      random_mirror:
+        params:
+          p: 0.5
 
     transforms:
+      to_tensor:
+        params: ~
       normalize:
         params:
           # sunrgbd rgb
@@ -59,6 +60,9 @@ train:
           # mean: [0.4184, 0.3545, 0.3333]
           # std: [0.2993, 0.2884, 0.2945]
     depth_transforms:
+      to_tensor:
+        params: ~
+
       normalize:
         params:
           # sunrgbd depth
@@ -66,16 +70,16 @@ train:
           std: [0.2703, 0.2703, 0.2703]
 
     target_transforms:
+      to_tensor:
+        params: ~
       normalize:
         params:
           # sunrgbd depth
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
 
-
   # Losses
-  losses:
-    ~
+  losses: ~
 
   # Optimizer
   opt_params:
