@@ -1,34 +1,15 @@
-from operator import itemgetter
 import torch
 import torch.nn as nn
 import torchvision.transforms as T
 from torchvision.transforms.functional import (
-    InterpolationMode,
     _interpolation_modes_from_int,
     crop,
     center_crop,
 )
-import random
-import cv2
-import collections
-import numpy as np
+
 from typing import List, Tuple
 import math
 from torchvision.transforms import functional as F
-
-
-class CustomRandomResizedCrop(T.RandomResizedCrop):
-    def __init__(
-        self,
-        size,
-        scale=...,
-        ratio=(3.0 / 4.0, 4.0 / 3.0),
-        interpolation=InterpolationMode.BILINEAR,
-        interp_mode=2,
-    ):
-        super().__init__(size, scale, ratio, interpolation)
-        self.interpolation = _interpolation_modes_from_int(interp_mode)
-
 
 class CropBorder(nn.Module):
     def __init__(self, width, height) -> None:
@@ -39,15 +20,6 @@ class CropBorder(nn.Module):
     def forward(self, x: torch.Tensor):
         w, h = x.size
         return center_crop(x, [h - self.height, w - self.width])
-
-
-class CustomTransform(nn.Module):
-    def __init__(self) -> None:
-        super().__init__()
-
-    def forward(self, x):
-        pass
-
 
 def get_crop_params(img, scale: List[float], ratio: List[float]) -> Tuple[int, int, int, int]:
     """Get parameters for ``crop`` for a random sized crop.
@@ -114,6 +86,7 @@ class RandomResizedCrop:
         interp_mode=2,
     ):
         self.interpolation = _interpolation_modes_from_int(interp_mode)
+        self.label_interpolation = _interpolation_modes_from_int(0)
         self.size = size
         self.scale = scale
         self.ratio = ratio
@@ -125,8 +98,13 @@ class RandomResizedCrop:
             break
         i, j, h, w = get_crop_params(img, self.scale, self.ratio)
         for key, value in kwargs.items():
-            res[key] = F.resized_crop(
-                img, i, j, h, w, self.size, self.interpolation)
+            if key == "label":
+                res[key] = F.resized_crop(
+                    img, i, j, h, w, self.size, self.label_interpolation)
+
+            else:
+                res[key] = F.resized_crop(
+                    img, i, j, h, w, self.size, self.interpolation)
 
         return res
 

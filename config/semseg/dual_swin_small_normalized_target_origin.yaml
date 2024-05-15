@@ -4,7 +4,7 @@ model:
   params:
     backbone:
       name: "swin_s"
-      params: 
+      params:
         frozen_stages: -1
     decoder:
       name: "mlp"
@@ -26,7 +26,7 @@ train:
   resume: ~
 
   # Train config
-  batch_size: 32
+  batch_size: 1
   num_workers: 4
   drop_last: True
   lr: 6e-5
@@ -34,53 +34,49 @@ train:
   momentum: 0.9
   weight_decay: 0.01
   num_epochs: 500
-  warmup_epochs: 10
+  warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
-
 
   # Dataset
   dataset:
-    name: "sunrgbd"
+    name: "nyuv2"
     params:
-      root: "data/sunrgbd_trainval"
+      root: "data/NYUDepthv2"
       split: "train"
     common_transforms:
-      RandomHorizontalFlip:
-        params: ~
-      RandomResizedCrop:
+      semseg_transform:
         params:
-          size: [224, 224]
-          scale: [0.2, 1.0]
-          interp_mode: 3
+          size: [480, 640]
+          train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
+      random_mirror:
+        params:
+          p: 0.5
+
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # nyuv2
+          mean: [0.4184, 0.3545, 0.3333]
+          std: [0.2993, 0.2884, 0.2945]
+    depth_transforms:
       to_tensor:
         params: ~
 
-    transforms:
-      normalize:
-        params:
-          # sunrgbd rgb
-          mean: [0.4960, 0.4686, 0.4415]
-          std: [0.2781, 0.2865, 0.2917]
-          # nyuv2
-          # mean: [0.4184, 0.3545, 0.3333]
-          # std: [0.2993, 0.2884, 0.2945]
-    depth_transforms:
       normalize:
         params:
           # sunrgbd depth
           mean: [0.4132, 0.4132, 0.4132]
           std: [0.2703, 0.2703, 0.2703]
 
-    target_transforms:
-      normalize:
-        params:
-          # sunrgbd depth anything
-          mean: [0.4975, 0.4975, 0.4975]
-          std: [0.2218, 0.2218, 0.2218]
+    target_transforms: ~
+    label_transforms:
+      to_tensor:
+        params: ~
 
   # Losses
-  losses:
-    ~
+  losses: ~
 
   # Optimizer
   opt_params:
@@ -101,8 +97,8 @@ train:
   output_dir: output_dir/semseg/dual_swin_small_normalized_target_origin
   model_folder: ~
 
-val:
+val: ~
   # Dataset
-  dataset: ~
+  # dataset: ~
 test:
   need_test: False

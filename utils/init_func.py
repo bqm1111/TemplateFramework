@@ -4,6 +4,8 @@
 # @Author  : yuchangqian
 # @Contact : changqian_yu@163.com
 # @File    : init_func.py.py
+from venv import logger
+from cv2 import norm
 import torch
 import torch.nn as nn
 
@@ -32,6 +34,12 @@ def init_weight(module_list, conv_init, norm_layer, bn_eps, bn_momentum,
 
 
 def group_weight(module, norm_layer, lr):
+    if norm_layer == "BatchNorm2d":
+        norm_layer = nn.BatchNorm2d
+    elif norm_layer == "SyncBN":
+        norm_layer == nn.SyncBatchNorm
+    else:
+        logger.error("Unsupported norm layer")
     weight_group = []
     group_decay = []
     group_no_decay = []

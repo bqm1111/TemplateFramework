@@ -184,7 +184,7 @@ class SemSegRunner(BaseRunner):
         niters_per_epoch = len(self.train_loader)
         total_iteration = self.train_cfg.num_epochs * niters_per_epoch
         self.scheduler = lr_policy.WarmUpPolyLR(
-            train_cfg.base_lr, train_cfg.lr_power, total_iteration, niters_per_epoch * train_cfg.warm_up_epoch)
+            train_cfg.lr, train_cfg.lr_power, total_iteration, niters_per_epoch * train_cfg.warmup_epoch)
 
     def train_one_epoch(self):
         cfg = self.train_cfg
@@ -193,7 +193,7 @@ class SemSegRunner(BaseRunner):
         for data_iter_step, samples in enumerate(self.train_loader):
             rgb = samples["rgb"].cuda(non_blocking=True)
             depth = samples["depth"].cuda(non_blocking=True)
-            label = samples["seglabel"].cuda(non_blocking=True)
+            label = samples["label"].cuda(non_blocking=True)
 
             aux_rate = 0.2
             loss = self.model(rgb, depth, label)

@@ -1,6 +1,7 @@
-from .transforms import CustomRandomResizedCrop, CropBorder, CustomCompose, RandomMirror, RandomResizedCrop
+from .transforms import CropBorder, CustomCompose, RandomMirror, RandomResizedCrop
+from .semseg.preprocess import TrainPre
 from omegaconf.dictconfig import DictConfig
-from .datasets import DepthDataset, MNIST, NYUv2Dataset, SunRGBDDataset
+from .datasets import MNIST, NYUv2Dataset, SunRGBDDataset
 from utils.logger import get_root_logger
 import torchvision.transforms as T
 ALL_TRANSFORM = {
@@ -12,7 +13,8 @@ ALL_TRANSFORM = {
 }
 ALL_CUSTOM_TRANSFORM = {
     "random_mirror": RandomMirror,
-    "random_resized_crop": RandomResizedCrop
+    "random_resized_crop": RandomResizedCrop,
+    "semseg_transform": TrainPre
 }
 ALL_DATASETS = {
     "nyuv2": NYUv2Dataset,
@@ -34,6 +36,7 @@ def get_dataset(cfg):
     transforms = get_transform(cfg.transforms)
     depth_transforms = get_transform(cfg.depth_transforms)
     target_transforms = get_transform(cfg.target_transforms)
+    label_transforms = get_transform(cfg.label_transforms)
     common_transforms = get_common_transform(cfg.common_transforms)
 
     return ALL_DATASETS[name](
@@ -41,6 +44,7 @@ def get_dataset(cfg):
         transforms=transforms,
         target_transforms=target_transforms,
         depth_transforms=depth_transforms,
+        label_transforms=label_transforms,
         common_transforms=common_transforms
     )
 

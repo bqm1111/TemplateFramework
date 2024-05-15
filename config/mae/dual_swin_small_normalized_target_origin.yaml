@@ -77,6 +77,7 @@ train:
           # sunrgbd depth
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
+    label_transforms: ~
 
   # Losses
   losses:

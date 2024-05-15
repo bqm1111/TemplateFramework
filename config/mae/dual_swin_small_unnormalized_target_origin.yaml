@@ -4,7 +4,6 @@ model:
   params:
     norm_pix_loss: False
     target_type: "origin"
-
 train:
   experiment_name: "mae"
   # Runner
@@ -16,8 +15,8 @@ train:
   eval_iter: ~
   runner_name: mae
   distributed: False
-  device: cuda
-  resume: output_dir/dual_swin_small_unnormalized_target_origin/checkpoint-1160.pth
+  device: cuda:0
+  resume: ~
 
   # Dataloader
   batch_size: 32
@@ -31,6 +30,7 @@ train:
   lr: 1.5e-04
   min_lr: 1.0e-05
   weight_decay: 0.01
+
 
   # Dataset
   dataset:
@@ -77,9 +77,15 @@ train:
           # sunrgbd depth
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
+    label_transforms: ~
 
   # Losses
-  losses: ~
+  losses:
+    ~
+    # loss:
+    #   type: native_scaler
+    #   weight: 1.0
+    #   params: ~
 
   # Optimizer
   opt_params:
@@ -96,6 +102,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_small_unnormalized_target_origin
-  output_dir: output_dir/dual_swin_small_unnormalized_target_origin
+  log_dir: log/dual_swin_small_normalized_target_origin
+  output_dir: output_dir/dual_swin_small_normalized_target_origin
   model_folder: ~
+

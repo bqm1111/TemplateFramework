@@ -59,7 +59,7 @@ if __name__ == "__main__":
         opt_params = optim_factory.param_groups_weight_decay(
             model, train_cfg.weight_decay)
     elif train_cfg.experiment_name == "semseg":
-        opt_params = group_weight(model, config.model.params.norm_layer, train_cfg.base_lr)
+        opt_params = group_weight(model, config.model.params.norm_layer, train_cfg.lr)
 
     optimizer = get_optimizer(
         opt_name=train_cfg.opt_name,
