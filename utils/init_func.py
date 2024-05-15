@@ -7,6 +7,7 @@
 import torch
 import torch.nn as nn
 
+
 def __init_weight(feature, conv_init, norm_layer, bn_eps, bn_momentum,
                   **kwargs):
     for name, m in feature.named_modules():
@@ -30,7 +31,8 @@ def init_weight(module_list, conv_init, norm_layer, bn_eps, bn_momentum,
                       **kwargs)
 
 
-def group_weight(weight_group, module, norm_layer, lr):
+def group_weight(module, norm_layer, lr):
+    weight_group = []
     group_decay = []
     group_no_decay = []
     count = 0
@@ -51,8 +53,9 @@ def group_weight(weight_group, module, norm_layer, lr):
                 group_no_decay.append(m.bias)
         elif isinstance(m, nn.Parameter):
             group_decay.append(m)
-   
-    assert len(list(module.parameters())) >= len(group_decay) + len(group_no_decay)
+
+    assert len(list(module.parameters())) >= len(
+        group_decay) + len(group_no_decay)
     weight_group.append(dict(params=group_decay, lr=lr))
     weight_group.append(dict(params=group_no_decay, weight_decay=.0, lr=lr))
     return weight_group

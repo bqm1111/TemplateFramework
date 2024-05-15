@@ -14,25 +14,14 @@ from copy import deepcopy
 from utils.logger import get_root_logger
 import torch.nn as nn
 from timm.optim import optim_factory
-
+from models.segmentors import EncoderDecoder
+from engine import get_model
 logger = get_root_logger()
-
-class BaseClass:
-    def __init__(self):
-        print("Do this first")
-    
-    def train(self):
-        print("Train first")
-
-class InheritClass(BaseClass):
-    def __init__(self):
-        super().__init__()
-        print("Do this later")
-    def train(self):
-        print("Train second")
 
 
 if __name__ == '__main__':
-    a = InheritClass()
-    a.train()
-    
+    config = OmegaConf.load(
+        "config/semseg/dual_swin_small_normalized_target_origin.yaml")
+    net = get_model(config.model.name, **config.model.params)
+    y = net(torch.ones(1, 3, 224, 224).float(), torch.ones(
+        1, 3, 224, 224).float(), torch.randint(0, 40, (1, 224, 224)).long())

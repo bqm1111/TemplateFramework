@@ -1,37 +1,43 @@
+# Model
+model:
+  name: "encoder_decoder"
+  params:
+    backbone:
+      name: "swin_s"
+      params: 
+        frozen_stages: -1
+    decoder:
+      name: "mlp"
+      params:
+        in_channels: [96, 192, 384, 768]
+    aux_head: ~
+    norm_layer: "BatchNorm2d"
+    pretrained: output_dir/dual_swin_small_normalized_target_origin/checkpoint-1080.pth
+    train_cfg:
+      bn_eps: 1e-3
+      bn_momentum: 0.1
+
 train:
   experiment_name: "semseg"
   # Runner
-  num_epochs: 4000
-  start_saving_epoch: 1000
-  saving_interval: 40
-  max_iter: ~
-  log_iter: ~
-  eval_iter: ~
   runner_name: semseg
   distributed: False
   device: cuda
   resume: ~
 
-  # Dataloader
+  # Train config
   batch_size: 32
   num_workers: 4
   drop_last: True
-
-  # Hyperparameter
-  mask_ratio: 0.75
-  accum_iter: 4
-  warmup_epochs: 40
-  lr: 1.5e-04
-  min_lr: 1.0e-05
+  lr: 6e-5
+  lr_power: 0.9
+  momentum: 0.9
   weight_decay: 0.01
+  num_epochs: 500
+  warmup_epochs: 10
+  train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
 
-  # Model
-  model:
-    backbone:
-      name: "dual_swinmae_s"
-    decoder:
-      name: "mlp"
-    aux_head: ~
+
   # Dataset
   dataset:
     name: "sunrgbd"
@@ -75,10 +81,6 @@ train:
   # Losses
   losses:
     ~
-    # loss:
-    #   type: native_scaler
-    #   weight: 1.0
-    #   params: ~
 
   # Optimizer
   opt_params:
@@ -95,8 +97,8 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_small_normalized_target_origin
-  output_dir: output_dir/dual_swin_small_normalized_target_origin
+  log_dir: log/semseg/dual_swin_small_normalized_target_origin
+  output_dir: output_dir/semseg/dual_swin_small_normalized_target_origin
   model_folder: ~
 
 val:

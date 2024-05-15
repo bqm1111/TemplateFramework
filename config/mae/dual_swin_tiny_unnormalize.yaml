@@ -1,3 +1,9 @@
+# Model
+model:
+  name: "dual_swinmae_t"
+  params:
+    norm_pix_loss: False
+    
 train:
   experiment_name: "mae"
   # Runner
@@ -25,11 +31,6 @@ train:
   min_lr: 1.0e-05
   weight_decay: 0.01
 
-  # Model
-  model:
-    name: "dual_swinmae_t"
-    params:
-      norm_pix_loss: False
   # Dataset
   dataset:
     name: "sunrgbd"

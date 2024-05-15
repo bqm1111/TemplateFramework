@@ -209,7 +209,7 @@ class DualSwinSemSeg(nn.Module):
             layers.append(layer)
         return layers
 
-    def forward_encoder(self, x: torch.Tensor, x_d: torch.Tensor):
+    def forward(self, x: torch.Tensor, x_d: torch.Tensor):
         B, H, W, C = x.shape
         x = self.patch_embed(x)
         x_d = self.patch_embed_d(x_d)
@@ -249,12 +249,6 @@ class DualSwinSemSeg(nn.Module):
                 outs.append(out)
         return tuple(outs)
 
-    def forward(self, inputs):
-        x = inputs["rgb"]
-        x_d = inputs["depth"]
-        outs = self.forward_encoder(x, x_d)
-        return outs
-
 class dual_swin_semseg_t(DualSwinSemSeg):
     def __init__(self, **kwargs):
         super(dual_swin_semseg_t, self).__init__(
@@ -274,7 +268,6 @@ class dual_swin_semseg_t(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
             use_checkpoint=False,
             **kwargs,
         )
@@ -298,7 +291,6 @@ class dual_swin_semseg_s(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
             use_checkpoint=False,
             **kwargs,
         )
@@ -322,7 +314,6 @@ class dual_swin_semseg_b(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
             use_checkpoint=False,
             **kwargs,
         )
@@ -332,8 +323,7 @@ if __name__ == "__main__":
     net = dual_swin_semseg_s()
     model_file = "output_dir/dual_swin_small_normalized/checkpoint-2880.pth"
     load_dual_branch_model_from_mae_pretrained(net, model_file)
-    inputs = {"rgb": torch.ones(1, 3, 224, 224), "depth": torch.ones(1, 3, 224, 224)}
-    y = net(inputs)
+    y = net(torch.ones(1, 3, 224, 224), torch.ones(1, 3, 224, 224))
     for out in y:
         print(f"Output shape = {out.shape}")
     

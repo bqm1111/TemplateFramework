@@ -438,7 +438,6 @@ class DualSwinMAE(nn.Module):
         return loss
 
     def forward(self, inputs: dict):
-        print(inputs.keys())
         x = inputs["rgb"]
         x_d = inputs["depth"]
         depth_anything_target = inputs["depth_anything"]

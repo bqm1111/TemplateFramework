@@ -5,18 +5,13 @@ from models.vanilla_mae import (
     mae_vit_huge_patch14,
     mae_vit_large_patch16,
 )
+from models.segmentors import EncoderDecoder
 from models.backbone.swin_mae import swin_mae
 from models.backbone.dual_swin_mae import (
     dual_swinmae_t,
     dual_swinmae_s,
     dual_swinmae_b,
 )
-from models.backbone.dual_swin_semseg import (
-    dual_swin_semseg_b,
-    dual_swin_semseg_s,
-    dual_swin_semseg_t,
-)
-from models.decoders import MLPDecoderHead, DeepLabV3Plus, UPerHead, FCNHead
 from .runner import BaseRunner, MAERunner, SemSegRunner
 
 # from .optimizer import BaseOptimizer
@@ -38,42 +33,21 @@ AVAI_MODEL = {
     "dual_swinmae_t": dual_swinmae_t,
     "dual_swinmae_b": dual_swinmae_b,
     "dual_swinmae_s": dual_swinmae_s,
-}
-AVAI_BACKBONE = {
-    "swin_s": dual_swin_semseg_s,
-    "swin_b": dual_swin_semseg_b,
-    "swin_t": dual_swin_semseg_t,
-}
-AVAI_DECODER = {
-    "mlp": MLPDecoderHead,
-    "uper": UPerHead,
-    "fcn": FCNHead,
-    "deeplabv3": DeepLabV3Plus,
+    "encoder_decoder": EncoderDecoder
 }
 AVAI_OPT = {
     "sgd": torch.optim.SGD,
     "adam": torch.optim.Adam,
     "adamw": torch.optim.AdamW,
 }
-AVAI_RUNNER = {"base_runner": BaseRunner, "mae": MAERunner, "semseg": SemSegRunner}
-
-
-def get_decoder(model_name, **kwargs):
-    if model_name not in AVAI_MODEL:
-        print("not supported model name, please implement it first.")
-    return AVAI_MODEL[model_name](**kwargs).cuda()
-
-
-def get_backbone(model_name, **kwargs):
-    if model_name not in AVAI_MODEL:
-        print("not supported model name, please implement it first.")
-    return AVAI_BACKBONE[model_name](**kwargs).cuda()
+AVAI_RUNNER = {"base_runner": BaseRunner,
+               "mae": MAERunner, "semseg": SemSegRunner}
 
 
 def get_model(model_name, **kwargs):
-    if model_name not in AVAI_BACKBONE:
+    if model_name not in AVAI_MODEL:
         print("not supported model name, please implement it first.")
-    return AVAI_MODEL[model_name](**kwargs).cuda()
+    return AVAI_MODEL[model_name](**kwargs)
 
 
 def get_optimizer(opt_name, **kwargs):
@@ -174,12 +148,15 @@ def get_scheduler(
     elif lr_scheduler == "linear":
 
         def lambda_rule(epoch):
-            lr_l = 1.0 - max(0, epoch - n_epochs_init) / float(n_epochs_decay + 1)
+            lr_l = 1.0 - max(0, epoch - n_epochs_init) / \
+                float(n_epochs_decay + 1)
             return lr_l
 
-        scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lambda_rule)
+        scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer, lr_lambda=lambda_rule)
     elif lr_scheduler == "constant":
-        scheduler = torch.optim.lr_scheduler.ConstantLR(optimizer, factor=warmup_factor)
+        scheduler = torch.optim.lr_scheduler.ConstantLR(
+            optimizer, factor=warmup_factor)
     return scheduler
 
 
@@ -210,6 +187,7 @@ def get_opt_params(model, lr_list, group_keys, wd_list):
                     if g_key in name:
                         params_group[index].append(value)
         return [
-            {"params": params_group[i], "lr": lr_list[i], "weight_decay": wd_list[i]}
+            {"params": params_group[i], "lr": lr_list[i],
+                "weight_decay": wd_list[i]}
             for i in range(len(lr_list))
         ]

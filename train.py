@@ -5,8 +5,9 @@ from torch.utils.data import DataLoader
 from datasets import get_dataset
 from losses import get_losses
 from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_runner
+from utils.init_func import group_weight
 from timm.optim import optim_factory
-
+import torch.nn as nn
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="Path to config file")
 
@@ -15,13 +16,13 @@ if __name__ == "__main__":
     config = OmegaConf.load(args.config)
 
     train_cfg = config.train
-    try:
+    if "val" in config:
         val_cfg = config.val
-    except ConfigKeyError:
+    else:
         val_cfg = None
-    try:
+    if "test" in config:
         test_cfg = config.test
-    except ConfigKeyError:
+    else:
         test_cfg = None
 
     train_dataset = get_dataset(train_cfg.dataset)
@@ -50,15 +51,15 @@ if __name__ == "__main__":
     losses = get_losses(losses=train_cfg.losses)
 
     # according the model name to get the adapted model
-    model = get_model(model_name=train_cfg.model.name, **train_cfg.model.params)
+    model = get_model(model_name=config.model.name,
+                      **config.model.params)
     # TODO: Unify interface for MAE and SemSeg training
-    # opt_params = get_opt_params(
-    #     model,
-    #     lr_list=train_cfg.opt_params.lr_list,
-    #     group_keys=None,
-    #     wd_list=train_cfg.opt_params.wd_list,
-    # )
-    opt_params = optim_factory.param_groups_weight_decay(model, train_cfg.weight_decay)
+
+    if train_cfg.experiment_name == "mae":
+        opt_params = optim_factory.param_groups_weight_decay(
+            model, train_cfg.weight_decay)
+    elif train_cfg.experiment_name == "semseg":
+        opt_params = group_weight(model, config.model.params.norm_layer, train_cfg.base_lr)
 
     optimizer = get_optimizer(
         opt_name=train_cfg.opt_name,
@@ -72,7 +73,7 @@ if __name__ == "__main__":
     )
 
     runner = get_runner(train_cfg)(
-        model, optimizer, losses, scheduler, train_loader, val_loader
+        model, optimizer, losses, scheduler, train_loader, val_loader, train_cfg, val_cfg, test_cfg
     )
 
     # train_step

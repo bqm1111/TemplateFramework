@@ -53,6 +53,7 @@ class BaseRunner():
 
     def train(self):
         cfg = self.train_cfg
+        self.device = cfg.device
         os.makedirs(cfg.log_dir, exist_ok=True)
         if cfg.log_dir is not None:
             self.log_writer = SummaryWriter(log_dir=cfg.log_dir)
@@ -161,7 +162,7 @@ class MAERunner(BaseRunner):
 
         # gather the stats from all processes
         metric_logger.synchronize_between_processes()
-        logger.info("Averaged stats:", metric_logger)
+        print("Averaged stats:", metric_logger)
         train_stats = {k: meter.global_avg for k,
                        meter in metric_logger.meters.items()}
         log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},

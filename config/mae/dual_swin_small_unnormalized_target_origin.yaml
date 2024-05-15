@@ -1,3 +1,10 @@
+# Model
+model:
+  name: "dual_swinmae_s"
+  params:
+    norm_pix_loss: False
+    target_type: "origin"
+    
 train:
   experiment_name: "mae"
   # Runner
@@ -10,7 +17,7 @@ train:
   runner_name: mae
   distributed: False
   device: cuda
-  resume: ~
+  resume: output_dir/dual_swin_small_unnormalized_target_origin/checkpoint-1040.pth
 
   # Dataloader
   batch_size: 32
@@ -25,12 +32,6 @@ train:
   min_lr: 1.0e-05
   weight_decay: 0.01
 
-  # Model
-  model:
-    name: "dual_swinmae_s"
-    params:
-      norm_pix_loss: False
-      target_type: "origin"
   # Dataset
   dataset:
     name: "sunrgbd"
@@ -87,7 +88,7 @@ train:
     wd_list: ~
 
   opt_name: "adamw"
-  scheduler_name: ~
+  scheduler_name: "constant"
   # Logger
   use_tensorboard: True
   tensorboard_folder:

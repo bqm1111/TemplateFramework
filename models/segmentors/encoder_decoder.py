@@ -1,11 +1,10 @@
-import imp
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from utils.logger import get_root_logger
 from utils.init_func import init_weight
-from engine import get_backbone, get_decoder
+from models import get_backbone, get_decoder
 
 logger = get_root_logger()
 
@@ -13,21 +12,35 @@ logger = get_root_logger()
 class EncoderDecoder(nn.Module):
     def __init__(
         self,
-        cfg=None,
+        backbone,
+        decoder,
+        aux_head=None,
         criterion=nn.CrossEntropyLoss(reduction="mean", ignore_index=255),
-        norm_layer=nn.BatchNorm2d,
+        norm_layer="BatchNorm2d",
+        pretrained=None,
+        train_cfg=None,
     ):
         super(EncoderDecoder, self).__init__()
-        self.backbone = get_backbone(cfg.backbone)
-        self.decoder = get_decoder(cfg.decoder)
-        self.aux_head = get_decoder(cfg.aux_head)
-        self.norm_layer = norm_layer
+
+        self.backbone = get_backbone(backbone.name, **backbone.params)
+        self.decoder = get_decoder(decoder.name, **decoder.params)
+        if aux_head is not None:
+            self.aux_head = get_decoder(aux_head.name, **aux_head.params)
+        else:
+            self.aux_head = None
+        self.train_cfg = train_cfg
+        if norm_layer == "BatchNorm2d":
+            self.norm_layer = nn.BatchNorm2d
+        elif norm_layer == "SyncBN":
+            self.norm_layer = nn.SyncBatchNorm
+        else:
+            logger.error("unsupported batchnorm layer")
 
         self.criterion = criterion
         if self.criterion:
-            self.init_weights(cfg, pretrained=cfg.pretrained_model)
+            self.init_weights(pretrained=pretrained)
 
-    def init_weights(self, cfg, pretrained=None):
+    def init_weights(self, pretrained=None):
         if pretrained:
             logger.info("Loading pretrained model: {}".format(pretrained))
             self.backbone.init_weights(pretrained=pretrained)
@@ -36,8 +49,8 @@ class EncoderDecoder(nn.Module):
             self.decoder,
             nn.init.kaiming_normal_,
             self.norm_layer,
-            cfg.bn_eps,
-            cfg.bn_momentum,
+            self.train_cfg.bn_eps,
+            self.train_cfg.bn_momentum,
             mode="fan_in",
             nonlinearity="relu",
         )
@@ -46,8 +59,8 @@ class EncoderDecoder(nn.Module):
                 self.aux_head,
                 nn.init.kaiming_normal_,
                 self.norm_layer,
-                cfg.bn_eps,
-                cfg.bn_momentum,
+                self.train_cfg.bn_eps,
+                self.train_cfg.bn_momentum,
                 mode="fan_in",
                 nonlinearity="relu",
             )
@@ -58,9 +71,10 @@ class EncoderDecoder(nn.Module):
         orisize = rgb.shape
         x = self.backbone(rgb, modal_x)
         out = self.decoder.forward(x)
-        out = F.interpolate(out, size=orisize[2:], mode="bilinear", align_corners=False)
+        out = F.interpolate(
+            out, size=orisize[2:], mode="bilinear", align_corners=False)
         if self.aux_head:
-            aux_fm = self.aux_head(x[self.aux_index])
+            aux_fm = self.aux_head(x[self.train_cfg.aux_index])
             aux_fm = F.interpolate(
                 aux_fm, size=orisize[2:], mode="bilinear", align_corners=False
             )
@@ -75,6 +89,17 @@ class EncoderDecoder(nn.Module):
         if label is not None:
             loss = self.criterion(out, label.long())
             if self.aux_head:
-                loss += self.aux_rate * self.criterion(aux_fm, label.long())
+                loss += self.train_cfg.aux_rate * \
+                    self.criterion(aux_fm, label.long())
             return loss
         return out
+
+
+if __name__ == '__main__':
+    from omegaconf import OmegaConf
+    config = OmegaConf.load(
+        "config/semseg/dual_swin_small_normalized_target_origin.yaml")
+    net = EncoderDecoder(cfg=config)
+
+    y = net(torch.ones(1, 3, 224, 224).float(), torch.ones(
+        1, 3, 224, 224).float(), torch.randint(0, 40, (1, 224, 224)).long())

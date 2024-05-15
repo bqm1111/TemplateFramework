@@ -1,3 +1,4 @@
+from email.policy import strict
 import os.path as osp
 
 import torch
@@ -148,6 +149,7 @@ def load_dual_branch_model_from_mae_pretrained(model, model_file: str):
         if any(subkey in k for subkey in mae_keys_only):
             continue
         state_dict[k] = v
+    model.load_state_dict(state_dict, strict=False)
 
     del state_dict
     logger.info("Successfully load dual branch model from mae pretrained")
