@@ -8,7 +8,7 @@ train:
   experiment_name: "mae"
   # Runner
   num_epochs: 4000
-  start_saving_epoch: 1000
+  start_saving_epoch: 600
   saving_interval: 40
   max_iter: ~
   log_iter: ~

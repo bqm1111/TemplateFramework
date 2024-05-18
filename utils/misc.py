@@ -48,7 +48,8 @@ class SmoothedValue(object):
         """
         if not is_dist_avail_and_initialized():
             return
-        t = torch.tensor([self.count, self.total], dtype=torch.float64, device="cuda")
+        t = torch.tensor([self.count, self.total],
+                         dtype=torch.float64, device="cuda")
         dist.barrier()
         dist.all_reduce(t)
         t = t.tolist()
@@ -107,7 +108,8 @@ class MetricLogger(object):
         if attr in self.__dict__:
             return self.__dict__[attr]
         raise AttributeError(
-            "'{}' object has no attribute '{}'".format(type(self).__name__, attr)
+            "'{}' object has no attribute '{}'".format(
+                type(self).__name__, attr)
         )
 
     def __str__(self):
@@ -324,11 +326,13 @@ def get_grad_norm_(parameters, norm_type: float = 2.0) -> torch.Tensor:
         return torch.tensor(0.0)
     device = parameters[0].grad.device
     if norm_type == inf:
-        total_norm = max(p.grad.detach().abs().max().to(device) for p in parameters)
+        total_norm = max(p.grad.detach().abs().max().to(device)
+                         for p in parameters)
     else:
         total_norm = torch.norm(
             torch.stack(
-                [torch.norm(p.grad.detach(), norm_type).to(device) for p in parameters]
+                [torch.norm(p.grad.detach(), norm_type).to(device)
+                 for p in parameters]
             ),
             norm_type,
         )
@@ -365,7 +369,6 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
                 "epoch": epoch,
                 "args": args,
             }
-
 
 
 def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):

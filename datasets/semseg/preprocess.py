@@ -1,5 +1,6 @@
 
 import collections.abc
+from venv import logger
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -141,7 +142,5 @@ class TrainPre(object):
             else:
                 res[key], _ = random_crop_pad_to_shape(
                     value, crop_pos, crop_size, 0)
-                # res[key] = res[key].transpose(2, 0, 1)
-
 
         return res

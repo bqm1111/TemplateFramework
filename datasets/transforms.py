@@ -10,6 +10,7 @@ from torchvision.transforms.functional import (
 from typing import List, Tuple
 import math
 from torchvision.transforms import functional as F
+import copy
 
 class CropBorder(nn.Module):
     def __init__(self, width, height) -> None:
@@ -100,11 +101,10 @@ class RandomResizedCrop:
         for key, value in kwargs.items():
             if key == "label":
                 res[key] = F.resized_crop(
-                    img, i, j, h, w, self.size, self.label_interpolation)
-
+                    value, i, j, h, w, self.size, self.label_interpolation)
             else:
                 res[key] = F.resized_crop(
-                    img, i, j, h, w, self.size, self.interpolation)
+                    value, i, j, h, w, self.size, self.interpolation)
 
         return res
 

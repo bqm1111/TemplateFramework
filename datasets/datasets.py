@@ -30,7 +30,7 @@ class DepthDataset(Dataset):
         self.label_transforms = label_transforms
         self.common_transforms = common_transforms
         self.rgb_path = os.path.join(self.root_dir, "image")
-        self.depth_path = os.path.join(self.root_dir, "rawDepths")
+        self.depth_path = os.path.join(self.root_dir, "depth")
         self.label_path = os.path.join(self.root_dir, "seglabel")
         self.raw_depth_anything_path = os.path.join(
             self.root_dir, "rawDepthAnything")
@@ -145,6 +145,7 @@ class SunRGBDDataset(DepthDataset):
             Image.open(os.path.join(self.depth_path,
                        str(index + 1).zfill(6) + ".png"))
         )
+
         raw_depth_anything = np.load(
             os.path.join(self.raw_depth_anything_path,
                          str(index + 1).zfill(6) + ".npy")
@@ -178,10 +179,7 @@ class SunRGBDDataset(DepthDataset):
         # Return output as a dictionary
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
-        if self.depth_transforms is not None:
-            return output
-        else:
-            return rgb
+        return output
 
 
 class MNIST(torchvision.datasets.MNIST):

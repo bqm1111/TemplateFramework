@@ -1,13 +1,11 @@
 import argparse
 from omegaconf import OmegaConf
-from omegaconf.errors import ConfigKeyError
 from torch.utils.data import DataLoader
 from datasets import get_dataset
 from losses import get_losses
 from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_runner
 from utils.init_func import group_weight
 from timm.optim import optim_factory
-import torch.nn as nn
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="Path to config file")
 

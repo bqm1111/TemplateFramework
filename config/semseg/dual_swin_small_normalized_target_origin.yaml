@@ -48,9 +48,6 @@ train:
         params:
           size: [480, 640]
           train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
-      random_mirror:
-        params:
-          p: 0.5
 
     transforms:
       to_tensor:
@@ -97,7 +94,8 @@ train:
   output_dir: output_dir/semseg/dual_swin_small_normalized_target_origin
   model_folder: ~
 
-val: ~
+val:
+  ~
   # Dataset
   # dataset: ~
 test:
