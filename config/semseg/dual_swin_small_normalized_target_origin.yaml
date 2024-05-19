@@ -12,7 +12,7 @@ model:
         in_channels: [96, 192, 384, 768]
     aux_head: ~
     norm_layer: "BatchNorm2d"
-    pretrained: output_dir/dual_swin_small_normalized_target_origin/checkpoint-1080.pth
+    pretrained: output_dir/dual_swin_small_normalized_target_origin/checkpoint-2240.pth
     train_cfg:
       bn_eps: 1e-3
       bn_momentum: 0.1
@@ -26,7 +26,7 @@ train:
   resume: ~
 
   # Train config
-  batch_size: 1
+  batch_size: 4
   num_workers: 4
   drop_last: True
   lr: 6e-5
@@ -36,6 +36,8 @@ train:
   num_epochs: 500
   warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
+  saving_interval: 10
+  start_saving_epoch: 300
 
   # Dataset
   dataset:
@@ -55,17 +57,16 @@ train:
       normalize:
         params:
           # nyuv2
-          mean: [0.4184, 0.3545, 0.3333]
-          std: [0.2993, 0.2884, 0.2945]
+          mean: [0.4949, 0.4267, 0.4039]
+          std: [0.2898, 0.2955, 0.3072]
     depth_transforms:
       to_tensor:
         params: ~
-
       normalize:
         params:
-          # sunrgbd depth
-          mean: [0.4132, 0.4132, 0.4132]
-          std: [0.2703, 0.2703, 0.2703]
+          # nyuv2 depth
+          mean: [0.3880, 0.3880, 0.3880]
+          std: [0.3248, 0.3248, 0.3248]
 
     target_transforms: ~
     label_transforms:
@@ -95,8 +96,37 @@ train:
   model_folder: ~
 
 val:
-  ~
-  # Dataset
-  # dataset: ~
+  batch_size: 1
+  background: 255
+  log_dir: log/eval/test
+  save_path: ~
+  show_image: True
+  dataset:
+    name: "nyuv2"
+    params:
+      root: "data/NYUDepthv2"
+      split: "test"
+    common_transforms: ~
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # nyuv2
+          mean: [0.4949, 0.4267, 0.4039]
+          std: [0.2898, 0.2955, 0.3072]
+    depth_transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # nyuv2 depth
+          mean: [0.3880, 0.3880, 0.3880]
+          std: [0.3248, 0.3248, 0.3248]
+
+    target_transforms: ~
+    label_transforms: 
+      to_tensor:
+        params: ~
 test:
   need_test: False

@@ -1,9 +1,19 @@
 from .transforms import CropBorder, CustomCompose, RandomMirror, RandomResizedCrop
 from .semseg.preprocess import TrainPre
 from omegaconf.dictconfig import DictConfig
-from .datasets import MNIST, NYUv2Dataset, SunRGBDDataset
+from .datasets import NYUv2Dataset, SunRGBDDataset
 from utils.logger import get_root_logger
 import torchvision.transforms as T
+from .class_names import nyuv2_classname
+ALL_CLASS_NAMES = {
+    'nyuv2': nyuv2_classname
+}
+
+
+def get_classname(dataset_name):
+    return ALL_CLASS_NAMES[dataset_name]()
+
+
 ALL_TRANSFORM = {
     "crop_border": CropBorder,
     "resize": T.Resize,
@@ -19,7 +29,6 @@ ALL_CUSTOM_TRANSFORM = {
 ALL_DATASETS = {
     "nyuv2": NYUv2Dataset,
     "sunrgbd": SunRGBDDataset,
-    "mnist": MNIST,
 }
 logger = get_root_logger()
 

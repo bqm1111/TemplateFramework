@@ -102,7 +102,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/dual_swin_small_unnormalized_target_origin
-  output_dir: output_dir/dual_swin_small_unnormalized_target_origin
+  log_dir: log/mae/dual_swin_small_unnormalized_target_origin
+  output_dir: output_dir/mae/dual_swin_small_unnormalized_target_origin
   model_folder: ~
 

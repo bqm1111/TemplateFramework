@@ -202,7 +202,7 @@ class SemSegRunner(BaseRunner):
                     loss, world_size=cfg.world_size)
 
             self.optimizer.zero_grad()
-            self.losses.backward()
+            loss.backward()
             self.optimizer.step()
 
             # TODO: Make this lr scheduler more efficient
@@ -227,6 +227,8 @@ class SemSegRunner(BaseRunner):
                     + ' loss=%.4f total_loss=%.4f' % (loss, (sum_loss / (data_iter_step + 1)))
 
             del loss
+            logger.info(print_str)
         if (cfg.distributed and (cfg.local_rank == 0)) or (not cfg.distributed):
             self.log_writer.add_scalar(
                 'train_loss', sum_loss / len(self.train_loader), self.epoch)
+            self.log_writer.add_scalar('lr', lr, self.epoch)

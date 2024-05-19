@@ -75,6 +75,8 @@ class NYUv2Dataset(DepthDataset):
 
     def __getitem__(self, index):
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
+        possible_output = {"rgb": self.transforms, "depth": self.depth_transforms,
+                           "depth_anything": self.target_tranforms, "label": self.label_transforms}
         rgb = Image.open(
             os.path.join(self.rgb_path, str(index) + ".jpg")
         ).convert("RGB")
@@ -89,9 +91,13 @@ class NYUv2Dataset(DepthDataset):
             raw_depth_anything = depth
         label = cv2.imread(os.path.join(
             self.label_path, str(index) + ".png"), cv2.IMREAD_GRAYSCALE)
-
-        output = {"rgb": rgb, "depth": depth,
+        label = label - 1
+        all_output = {"rgb": rgb, "depth": depth,
                   "depth_anything": raw_depth_anything, "label": label}
+        output = {}
+        for key, value in possible_output.items():
+            if value is not None:
+                output[key] = all_output[key] 
         if self.common_transforms is not None:
             output = self.common_transforms(**output)
 
@@ -109,10 +115,8 @@ class NYUv2Dataset(DepthDataset):
         # Return output as a dictionary
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
-        if self.depth_transforms is not None:
-            return output
-        else:
-            return rgb
+
+        return output
 
 
 class SunRGBDDataset(DepthDataset):
@@ -180,10 +184,6 @@ class SunRGBDDataset(DepthDataset):
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
         return output
-
-
-class MNIST(torchvision.datasets.MNIST):
-    pass
 
 
 if __name__ == "__main__":

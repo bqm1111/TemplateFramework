@@ -28,3 +28,4 @@ if __name__ == '__main__':
     y = net(torch.ones(1, 3, h, w).float(), torch.ones(
         1, 3, h, w).float(), torch.randint(0, 40, (1, h, w)).long())
     print(y.shape)
+    

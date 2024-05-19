@@ -92,7 +92,6 @@ class WarmUpPolyLR(_LRScheduler):
             return [self.start_lr * (
                 (1 - float(self.last_epoch) / self.total_iters) ** self.lr_power) for base_lr in self.base_lrs]
 
-# Example usage:
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     model = torch.nn.Linear(10, 2)

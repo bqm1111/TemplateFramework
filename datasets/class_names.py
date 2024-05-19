@@ -7,4 +7,3 @@ def nyuv2_classname():
 
 def sunrgbd_classname():
     return None
-

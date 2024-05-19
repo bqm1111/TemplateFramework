@@ -1,143 +1,106 @@
-import argparse
-import torch
 import numpy as np
-
-import matplotlib.pyplot as plt
-from PIL import Image
-from models import swin_mae
-from models.backbone import swin_mae
-from utils.logger import get_root_logger
-
-# define the utils
-# mean: [0.4939, 0.4259, 0.4036]
-# std: [0.2896, 0.2954, 0.3072]
+import cv2
+import scipy.io as sio
 
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--use_norm", action="store_true")
-parser.add_argument("--rgb", action="store_true")
-parser.add_argument("--epoch", type=int, default=1040)
-logger = get_root_logger()
+def set_img_color(colors, background, img, pred, gt, show255=False):
+    print(img.shape)
+    print(pred.shape)
+    print(gt.shape)
+    print(len(colors))
+    for i in range(0, len(colors)):
+        print(i)
+        if i != background:
+            img[np.where(pred == i)] = colors[i]
+    if show255:
+        img[np.where(gt == background)] = 255
+    return img
 
-if __name__ == "__main__":
-    args = parser.parse_args()
 
-    # # rgb mean and std
-    if args.rgb:
-        IMG_MEAN = np.array([0.4939, 0.4259, 0.4036])
-        IMG_STD = np.array([0.2896, 0.2954, 0.3072])
-    else:
-    # depth mean and std
-        IMG_MEAN = np.array([0.4132, 0.4132, 0.4132])
-        IMG_STD = np.array([0.2703, 0.2703, 0.2703])
+def show_prediction(colors, background, img, pred, gt):
+    im = np.array(img, np.uint8)
+    set_img_color(colors, background, im, pred, gt)
+    final = np.array(im)
+    return final
 
-    def show_image(image, use_norm, title=""):
-        # image is [H, W, 3]
-        assert image.shape[2] == 3
-        if use_norm:
-            plt.imshow(torch.clip((image * IMG_STD + IMG_MEAN) * 255, 0, 255).int())
+
+def show_img(colors, background, img, clean, gt, *pds):
+    im1 = np.array(img, np.uint8)
+    # set_img_color(colors, background, im1, clean, gt)
+    final = np.array(im1)
+    # the pivot black bar
+    pivot = np.zeros((im1.shape[0], 15, 3), dtype=np.uint8)
+    for pd in pds:
+        im = np.array(img, np.uint8)
+        # pd[np.where(gt == 255)] = 255
+        set_img_color(colors, background, im, pd, gt)
+        final = np.column_stack((final, pivot))
+        final = np.column_stack((final, im))
+
+    im = np.array(img, np.uint8)
+    set_img_color(colors, background, im, gt, True)
+    final = np.column_stack((final, pivot))
+    final = np.column_stack((final, im))
+    return final
+
+
+def get_colors(class_num):
+    colors = []
+    for i in range(class_num):
+        colors.append((np.random.random((1, 3)) * 255).tolist()[0])
+
+    return colors
+
+
+def get_ade_colors():
+    colors = sio.loadmat('./color150.mat')['colors']
+    colors = colors[:, ::-1,]
+    colors = np.array(colors).astype(int).tolist()
+    colors.insert(0, [0, 0, 0])
+
+    return colors
+
+
+def print_iou(iou, freq_IoU, mean_pixel_acc, pixel_acc, class_names=None, show_no_back=False, no_print=False):
+    n = iou.size
+    lines = []
+    for i in range(n):
+        if class_names is None:
+            cls = 'Class %d:' % (i+1)
         else:
-            plt.imshow(torch.clip(image * 255, 0, 255).int())
-
-        plt.title(title, fontsize=16)
-        plt.axis("off")
-        return
-
-    def prepare_model(chkpt_dir, arch="mae_vit_large_patch16"):
-        # build model
-        model = getattr(swin_mae, arch)()
-        # load model
-        checkpoint = torch.load(chkpt_dir, map_location="cpu")
-        msg = model.load_state_dict(checkpoint["model"], strict=False)
-        print(msg)
-        return model
-
-    def run_one_image(img, model, use_norm):
-        x = torch.tensor(img)
-
-        # make it a batch-like
-        x = x.unsqueeze(dim=0)
-        x = torch.einsum("nhwc->nchw", x)
-
-        # run MAE
-        # loss, y, mask = model(x.float(), mask_ratio=0.75)
-        loss, y, mask = model(x.float())
-
-        y = model.unpatchify(y)
-        y = torch.einsum("nchw->nhwc", y).detach().cpu()
-
-        # visualize the mask
-        mask = mask.detach()
-        print(f"Shape of mask = {mask.shape}")
-        mask = mask.unsqueeze(-1).repeat(
-            1, 1, model.patch_embed.patch_size[0]**2 * 3
-        )  # (N, H*W, p*p*3)
-        mask = model.unpatchify(mask)  # 1 is removing, 0 is keeping
-        mask = torch.einsum("nchw->nhwc", mask).detach().cpu()
-
-        x = torch.einsum("nchw->nhwc", x)
-
-        # masked image
-        im_masked = x * (1 - mask)
-
-        # MAE reconstruction pasted with visible patches
-        im_paste = x * (1 - mask) + y * mask
-
-        # make the plt figure larger
-        plt.rcParams["figure.figsize"] = [24, 24]
-
-        plt.subplot(1, 4, 1)
-        show_image(x[0], use_norm, "original")
-
-        plt.subplot(1, 4, 2)
-        show_image(im_masked[0], use_norm, "masked")
-
-        plt.subplot(1, 4, 3)
-        show_image(y[0], use_norm, "reconstruction")
-
-        plt.subplot(1, 4, 4)
-        show_image(im_paste[0], use_norm, "reconstruction + visible")
-
-        plt.show()
-
-    # load an image
-    if args.rgb:
-        filename = "data/sunrgbd_trainval/image/000013.jpg"
+            cls = '%d %s' % (i+1, class_names[i])
+        lines.append('%-8s\t%.3f%%' % (cls, iou[i] * 100))
+    mean_IoU = np.nanmean(iou)
+    mean_IoU_no_back = np.nanmean(iou[1:])
+    if show_no_back:
+        lines.append('----------     %-8s\t%.3f%%\t%-8s\t%.3f%%\t%-8s\t%.3f%%\t%-8s\t%.3f%%\t%-8s\t%.3f%%' % ('mean_IoU', mean_IoU * 100, 'mean_IU_no_back', mean_IoU_no_back*100,
+                                                                                                              'freq_IoU', freq_IoU*100, 'mean_pixel_acc', mean_pixel_acc*100, 'pixel_acc', pixel_acc*100))
     else:
-        filename = "data/sunrgbd_trainval/depth/001013.png"
+        lines.append('----------     %-8s\t%.3f%%\t%-8s\t%.3f%%\t%-8s\t%.3f%%\t%-8s\t%.3f%%' % ('mean_IoU', mean_IoU * 100, 'freq_IoU', freq_IoU*100,
+                                                                                                'mean_pixel_acc', mean_pixel_acc*100, 'pixel_acc', pixel_acc*100))
+    line = "\n".join(lines)
+    if not no_print:
+        print(line)
+    return line
 
-    img = Image.open(filename)
-    if args.rgb:
-        img = img.resize((224, 224))
-        img = np.array(img) / 255.0
-    else:
-        img = np.array(img)
-        img = Image.fromarray((img / np.max(img) * 255.0).astype(np.uint8))
-        img = img.resize((224, 224))
-        img = np.array(img) / 255.0
-        img = np.stack((img,) * 3, axis=-1)
 
-    assert img.shape == (224, 224, 3)
+def get_class_colors(num_class=41):
+    def uint82bin(n, count=8):
+        """returns the binary of integer n, count refers to amount of bits"""
+        return ''.join([str((n >> y) & 1) for y in range(count - 1, -1, -1)])
 
-    # normalize by ImageNet mean and std
-    if args.use_norm:
-        print("Using normalization")
-        img = img - IMG_MEAN
-        img = img / IMG_STD
-
-    plt.rcParams["figure.figsize"] = [5, 5]
-    # show_image(torch.tensor(img))
-    if args.use_norm:
-        chkpt_dir = "output_dir/rgb_normalized/checkpoint-" + str(args.epoch) + ".pth"
-    else:
-        if args.rgb:
-            chkpt_dir = "output_dir/swin_mae_rgb_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
-        else:
-            chkpt_dir = "output_dir/depth_unnormalized/checkpoint-" + str(args.epoch) + ".pth"
-
-    model_mae = prepare_model(chkpt_dir, "swin_mae")
-    print("Model loaded.")
-    torch.manual_seed(2)
-    print("MAE with pixel reconstruction:")
-    run_one_image(img, model_mae, args.use_norm)
-    
+    cmap = np.zeros((num_class, 3), dtype=np.uint8)
+    for i in range(num_class):
+        r, g, b = 0, 0, 0
+        id = i
+        for j in range(7):
+            str_id = uint82bin(id)
+            r = r ^ (np.uint8(str_id[-1]) << (7 - j))
+            g = g ^ (np.uint8(str_id[-2]) << (7 - j))
+            b = b ^ (np.uint8(str_id[-3]) << (7 - j))
+            id = id >> 3
+        cmap[i, 0] = r
+        cmap[i, 1] = g
+        cmap[i, 2] = b
+    class_colors = cmap.tolist()
+    return class_colors

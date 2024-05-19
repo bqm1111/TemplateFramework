@@ -31,21 +31,22 @@ if __name__ == "__main__":
         num_workers=train_cfg.num_workers,
         drop_last=train_cfg.drop_last,
     )
-    if val_cfg is not None:
-        val_dataset = get_dataset(val_cfg.dataset)
-    else:
-        val_dataset = None
+    # if val_cfg is not None:
+    #     val_dataset = get_dataset(val_cfg.dataset)
+    # else:
+    #     val_dataset = None
 
-    if val_dataset is not None:
-        val_loader = DataLoader(
-            val_dataset,
-            batch_size=val_cfg.batch_size,
-            shuffle=False,
-            num_workers=val_cfg.num_workers,
-            drop_last=val_cfg.drop_last,
-        )
-    else:
-        val_loader = None
+    # if val_dataset is not None:
+    #     val_loader = DataLoader(
+    #         val_dataset,
+    #         batch_size=val_cfg.batch_size,
+    #         shuffle=False,
+    #         num_workers=val_cfg.num_workers,
+    #         drop_last=val_cfg.drop_last,
+    #     )
+    # else:
+    #     val_loader = None
+    val_loader = None
     losses = get_losses(losses=train_cfg.losses)
 
     # according the model name to get the adapted model

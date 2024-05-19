@@ -23,6 +23,8 @@ if __name__ == "__main__":
     for data in tqdm(train_loader):
         for key in data.keys():
             sample = data[key]
+            if key == 'label':
+                continue
             _, _, h, w = sample.shape
             count[key] += h * w
             psum[key] += sample.sum(axis=[0, 2, 3])
