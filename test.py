@@ -23,5 +23,8 @@ if __name__ == '__main__':
     config = OmegaConf.load(
         "config/semseg/dual_swin_small_normalized_target_origin.yaml")
     net = get_model(config.model.name, **config.model.params)
-    y = net(torch.ones(1, 3, 224, 224).float(), torch.ones(
-        1, 3, 224, 224).float(), torch.randint(0, 40, (1, 224, 224)).long())
+    h = 480
+    w = 640
+    y = net(torch.ones(1, 3, h, w).float(), torch.ones(
+        1, 3, h, w).float(), torch.randint(0, 40, (1, h, w)).long())
+    print(y.shape)

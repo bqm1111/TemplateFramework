@@ -38,9 +38,11 @@ class Mlp(nn.Module):
 
 def window_partition(x: torch.Tensor, window_size):
     B, H, W, C = x.shape
-    x = x.view(B, H // window_size, window_size, W // window_size, window_size, C)
+    x = x.view(B, H // window_size, window_size,
+               W // window_size, window_size, C)
     windows = (
-        x.permute(0, 1, 3, 2, 4, 5).contiguous().view(-1, window_size, window_size, C)
+        x.permute(0, 1, 3, 2, 4, 5).contiguous(
+        ).view(-1, window_size, window_size, C)
     )
     return windows
 
@@ -129,9 +131,11 @@ class WindowAttention(nn.Module):
         relative_coords = relative_coords.permute(
             1, 2, 0
         ).contiguous()  # Wh*Ww, Wh*Ww, 2
-        relative_coords[:, :, 0] += self.window_size - 1  # shift to start from 0
+        relative_coords[:, :, 0] += self.window_size - \
+            1  # shift to start from 0
         relative_position_index = relative_coords.sum(-1)  # Wh*Ww, Wh*Ww
-        self.register_buffer("relative_position_index", relative_position_index)
+        self.register_buffer("relative_position_index",
+                             relative_position_index)
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.attn_drop = nn.Dropout(attn_drop)
@@ -142,7 +146,6 @@ class WindowAttention(nn.Module):
 
     def create_mask(self, x: torch.Tensor) -> torch.Tensor:
         _, H, W, _ = x.shape
-
         assert (
             H % self.window_size == 0 and W % self.window_size == 0
         ), "H or W is not divisible by window_size"
@@ -165,7 +168,8 @@ class WindowAttention(nn.Module):
                 cnt += 1
 
         mask_windows = window_partition(img_mask, self.window_size)
-        mask_windows = mask_windows.view(-1, self.window_size * self.window_size)
+        mask_windows = mask_windows.view(-1,
+                                         self.window_size * self.window_size)
         attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
 
         attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(
@@ -179,6 +183,13 @@ class WindowAttention(nn.Module):
             x: input features with shape of (num_windows*B, N, C)
         """
         B, H, W, C = x.shape
+        # pad feature maps to multiples of window size
+        pad_l = pad_t = 0
+        pad_r = (self.window_size - W % self.window_size) % self.window_size
+        pad_b = (self.window_size - H % self.window_size) % self.window_size
+        x = F.pad(x, (0, 0, pad_l, pad_r, pad_t, pad_b))
+        _, Hp, Wp, _ = x.shape
+
         if self.shift_size > 0:
             shifted_x = torch.roll(
                 x, shifts=(-self.shift_size, -self.shift_size), dims=(1, 2)
@@ -230,15 +241,20 @@ class WindowAttention(nn.Module):
         attn_windows = self.proj_drop(attn_windows)
 
         # Merge window
-        attn_windows = attn_windows.view(-1, self.window_size, self.window_size, C)
-        shifted_x = window_reverse(attn_windows, self.window_size, H, W)
+        attn_windows = attn_windows.view(-1,
+                                         self.window_size, self.window_size, C)
+
+        shifted_x = window_reverse(attn_windows, self.window_size, Hp, Wp)
         # reverse cyclic shift
         if self.shift_size > 0:
             x = torch.roll(
-                shifted_x, shifts=(self.shift_size, self.shift_size), dims=(1, 2)
+                shifted_x, shifts=(
+                    self.shift_size, self.shift_size), dims=(1, 2)
             )
         else:
             x = shifted_x
+        if pad_r > 0 or pad_b > 0:
+            x = x[:, :H, :W, :].contiguous()
 
         return x
 
@@ -269,7 +285,8 @@ class SwinTransformerBlock(nn.Module):
             proj_drop=drop,
             shift=shift,
         )
-        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.drop_path = DropPath(
+            drop_path) if drop_path > 0.0 else nn.Identity()
         self.norm2 = norm_layer(dim)
         mlp_hidden_dim = int(dim * mlp_ratio)
         self.mlp = Mlp(
@@ -382,7 +399,8 @@ class BasicLayer(nn.Module):
                     drop=drop,
                     attn_drop=attn_drop,
                     drop_path=(
-                        drop_path[i] if isinstance(drop_path, list) else drop_path
+                        drop_path[i] if isinstance(
+                            drop_path, list) else drop_path
                     ),
                     norm_layer=norm_layer,
                 )
@@ -439,7 +457,8 @@ class BasicLayer_up(nn.Module):
                     drop=drop,
                     attn_drop=attn_drop,
                     drop_path=(
-                        drop_path[i] if isinstance(drop_path, list) else drop_path
+                        drop_path[i] if isinstance(
+                            drop_path, list) else drop_path
                     ),
                     norm_layer=norm_layer,
                 )

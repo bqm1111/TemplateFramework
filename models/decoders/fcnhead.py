@@ -22,7 +22,7 @@ class FCNHead(nn.Module):
                 )
 
         self.classifier = nn.Conv2d(self.channels, num_classes, kernel_size=1)
-
+    
     def forward(self, x):
         output = self.conv(x)
         output = self.classifier(output)

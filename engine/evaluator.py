@@ -39,3 +39,25 @@ class Evaluator:
     def compute_metric(self, results):
         raise NotImplementedError
     
+    def whole_eval(self, img, output_size, device=None):
+        pass
+    
+    def sliding_eval(self, img, crop_size, stride_rate, device=None):
+        pass
+    
+    def scale_process(self, img, ori_shape, crop_size, stride_rate, device=None):
+        pass
+    
+    def val_func_process(self, input_data, device=None):
+        pass
+    
+    def process_image(self, img, crop_size=None):
+        pass
+    
+    def sliding_eval_rgbX(self, img, modal_X, crop_size, stride_rate, device=None):
+        pass
+    
+    def scale_process_rgbX(self, img, modal_X, crop_size, stride_rate, device=None):
+        pass
+    
+    
