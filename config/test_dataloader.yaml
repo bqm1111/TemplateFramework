@@ -1,0 +1,46 @@
+val:
+  dataset:
+    name: "sunrgbd"
+    params:
+      root: "data/sunrgbd/sunrgbd_trainval"
+      split: "train"
+    common_transforms:
+      random_resized_crop:
+        params:
+          size: [224, 224]
+          scale: [0.2, 1.0]
+          interp_mode: 3
+      random_mirror:
+        params:
+          p: 0.5
+
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # sunrgbd rgb
+          mean: [0.4960, 0.4686, 0.4415]
+          std: [0.2781, 0.2865, 0.2917]
+          # nyuv2
+          # mean: [0.4184, 0.3545, 0.3333]
+          # std: [0.2993, 0.2884, 0.2945]
+    depth_transforms:
+      to_tensor:
+        params: ~
+
+      normalize:
+        params:
+          # sunrgbd depth
+          mean: [0.4132, 0.4132, 0.4132]
+          std: [0.2703, 0.2703, 0.2703]
+
+    target_transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # sunrgbd depth
+          mean: [0.4975, 0.4975, 0.4975]
+          std: [0.2218, 0.2218, 0.2218]
+    label_transforms: ~

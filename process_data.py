@@ -2,19 +2,29 @@ import scipy.io
 import cv2
 import os
 from tqdm import tqdm
+import numpy as np
 
-path = "/home/sherlock/Pictures/segmentation/Official_SUNRGBD/sunrgbd_trainval/seg_label"
-save_path = "/home/sherlock/Pictures/segmentation/Official_SUNRGBD/sunrgbd_trainval/seglabel"
-filename = "data/sunrgbd_trainval/pointcloud/000005.mat"
-image_path = "/home/sherlock/Pictures/segmentation/sunrgbd/sunrgbd_trainval/image/000005.jpg"
-# img = cv2.imread(image_path)
-# print(img.shape)
 
-# for filename in tqdm(os.listdir(path)):
-order = filename.split(".")[0]
-mat = scipy.io.loadmat(filename)
-depth = mat["instance"]
-print(depth.shape)
-# 
-# print(mat)
-    # cv2.imwrite(os.path.join(save_path, order + ".png"), mat["seglabel"])
+def convert_depth_to_image(depth):
+    max_depth = np.max(depth)
+    depth = (depth / max_depth * 255.0).astype(np.uint8)
+    depth = np.stack((depth,) * 3, axis=-1)
+    return depth
+
+
+raw_depth_path = "data/NYUDepthv2/depth"
+raw_depthanything_path = "data/NYUDepthv2/rawDepthAnything"
+filename = "31.npy"
+raw_depth = np.load(os.path.join(raw_depth_path, filename))
+raw_depth_anything = np.load(os.path.join(raw_depthanything_path, filename))
+mask = np.where(raw_depth == 0, 0, 1)
+combine = raw_depth + (1 - mask) * raw_depth_anything
+
+raw_depth = convert_depth_to_image(raw_depth)
+raw_depth_anything = convert_depth_to_image(raw_depth_anything)
+combine = convert_depth_to_image(combine)
+
+cv2.imshow("depth", raw_depth)
+cv2.imshow("depthanything", raw_depth_anything)
+cv2.imshow("combine", combine)
+cv2.waitKey()

@@ -100,7 +100,7 @@ val:
   background: 255
   log_dir: log/eval/test
   save_path: ~
-  show_image: False
+  show_image: True
   dataset:
     name: "nyuv2"
     params:

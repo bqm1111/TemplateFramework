@@ -4,10 +4,6 @@ import scipy.io as sio
 
 
 def set_img_color(colors, background, img, pred, gt, show255=False):
-    print("entering this function")
-    print(f"colors shape = {len(colors)}")
-    print(f"img shape = {img.shape}")
-    print(colors[0])
     for i in range(0, len(colors)):
         if i != background:
             img[np.where(pred == i)] = colors[i]

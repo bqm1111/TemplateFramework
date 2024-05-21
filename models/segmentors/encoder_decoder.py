@@ -19,6 +19,7 @@ class EncoderDecoder(nn.Module):
         norm_layer="BatchNorm2d",
         pretrained=None,
         train_cfg=None,
+        eval=False,
     ):
         super(EncoderDecoder, self).__init__()
 
@@ -37,7 +38,7 @@ class EncoderDecoder(nn.Module):
             logger.error("unsupported batchnorm layer")
 
         self.criterion = criterion
-        if self.criterion:
+        if not eval:
             self.init_weights(pretrained=pretrained)
 
     def init_weights(self, pretrained=None):

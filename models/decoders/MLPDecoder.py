@@ -34,7 +34,6 @@ class MLPDecoderHead(nn.Module):
         self.align_corners = align_corners
         
         self.in_channels = in_channels
-        print(self.in_channels)
         
         if dropout_ratio > 0:
             self.dropout = nn.Dropout2d(dropout_ratio)
