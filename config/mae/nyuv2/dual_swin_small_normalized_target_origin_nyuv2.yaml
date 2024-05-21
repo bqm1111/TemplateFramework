@@ -16,7 +16,7 @@ train:
   runner_name: mae
   distributed: False
   device: cuda:0
-  resume: output_dir/dual_swin_small_normalized_target_origin/checkpoint-2240.pth
+  resume: ~
 
   # Dataloader
   batch_size: 16

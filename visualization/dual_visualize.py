@@ -15,22 +15,38 @@ parser.add_argument(
 )
 parser.add_argument("--img", type=int, help="Ordinal number of an image")
 parser.add_argument("--epoch", type=int, default=1040, help="Saved epoch used")
+parser.add_argument("--dataset", type=str)
 logger = get_root_logger()
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    NORM_RGB = {
-        "mean": np.array([0.4939, 0.4259, 0.4036]),
-        "std": np.array([0.2896, 0.2954, 0.3072]),
-    }
-    NORM_DEPTH = {
-        "mean": np.array([0.4132, 0.4132, 0.4132]),
-        "std": np.array([0.2703, 0.2703, 0.2703]),
-    }
-    NORM_DEPTH_ANYTHING = {
-        "mean": np.array([0.4975, 0.4975, 0.4975]),
-        "std": np.array([0.2218, 0.2218, 0.2218]),
-    }
+    if args.dataset == "nyuv2":
+        NORM_RGB = {
+            "mean": np.array([0.4847, 0.4162, 0.3979]),
+            "std": np.array([0.2876, 0.2949, 0.3080]),
+        }
+        NORM_DEPTH = {
+            "mean": np.array([0.3786, 0.3786, 0.3786]),
+            "std": np.array([0.3205, 0.3205, 0.3205]),
+        }
+        NORM_DEPTH_ANYTHING = {
+            "mean": np.array([0.5503, 0.5503, 0.5503]),
+            "std": np.array([0.2272, 0.2272, 0.2272]),
+        }
+    elif args.dataset == "sunrgbd":
+        NORM_RGB = {
+            "mean": np.array([0.4939, 0.4259, 0.4036]),
+            "std": np.array([0.2896, 0.2954, 0.3072]),
+        }
+        NORM_DEPTH = {
+            "mean": np.array([0.4132, 0.4132, 0.4132]),
+            "std": np.array([0.2703, 0.2703, 0.2703]),
+        }
+        NORM_DEPTH_ANYTHING = {
+            "mean": np.array([0.4975, 0.4975, 0.4975]),
+            "std": np.array([0.2218, 0.2218, 0.2218]),
+        }
+
 
     def show_image(image, use_norm, norm, title=""):
         # image is [H, W, 3]
@@ -124,20 +140,33 @@ if __name__ == "__main__":
         return depth
 
     # load an image
-    data_path = "data/sunrgbd_trainval"
-    file_name = str(args.img).zfill(6)
-    rgb_path = os.path.join(data_path, "image", file_name + ".jpg")
-    depth_path = os.path.join(data_path, "depth", file_name + ".png")
-    raw_depth_anything_path = os.path.join(
-        data_path, "rawDepthAnything", file_name + ".npy"
-    )
+    if args.dataset == "sunrgbd":
+        data_path = "data/sunrgbd_trainval"
+        file_name = str(args.img).zfill(6)
+        rgb_path = os.path.join(data_path, "image", file_name + ".jpg")
+        depth_path = os.path.join(data_path, "depth", file_name + ".png")
+        raw_depth_anything_path = os.path.join(
+            data_path, "rawDepthAnything", file_name + ".npy"
+        )
+        depth = np.array(Image.open(depth_path))
+
+    elif args.dataset == "nyuv2":
+        data_path = "data/NYUDepthv2"
+        file_name = str(args.img)
+        rgb_path = os.path.join(data_path, "image", file_name + ".jpg")
+        depth_path = os.path.join(data_path, "depth", file_name + ".npy")
+        raw_depth_anything_path = os.path.join(
+            data_path, "rawDepthAnything", file_name + ".npy"
+        )
+        depth = np.array(np.load(depth_path))
+
+
 
     # Preprocess inputs
     rgb = Image.open(rgb_path)
     rgb = rgb.resize((224, 224))
     rgb = np.array(rgb) / 255.0
 
-    depth = np.array(Image.open(depth_path))
     depth = process_depth_img(depth)
 
     raw_depth_anything = np.load(raw_depth_anything_path)
