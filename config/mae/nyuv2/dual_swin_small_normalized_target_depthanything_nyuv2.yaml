@@ -1,0 +1,102 @@
+# Model
+model:
+  name: "dual_swinmae_s"
+  params:
+    norm_pix_loss: True
+    target_type: "rawDepthAnything"
+train:
+  experiment_name: "mae"
+  # Runner
+  num_epochs: 4000
+  start_saving_epoch: 600
+  saving_interval: 40
+  max_iter: ~
+  log_iter: ~
+  eval_iter: ~
+  runner_name: mae
+  distributed: False
+  device: cuda:0
+  resume: ~
+
+  # Dataloader
+  batch_size: 32
+  num_workers: 4
+  drop_last: True
+
+  # Hyperparameter
+  mask_ratio: 0.75
+  accum_iter: 4
+  warmup_epochs: 40
+  lr: 1.5e-04
+  min_lr: 1.0e-05
+  weight_decay: 0.01
+
+
+  # Dataset
+  dataset:
+    name: "nyuv2"
+    params:
+      root: "data/NYUDepthv2"
+      split: "train"
+    common_transforms:
+      random_resized_crop:
+        params:
+          size: [224, 224]
+          scale: [0.2, 1.0]
+          interp_mode: 3
+      random_mirror:
+        params:
+          p: 0.5
+
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          mean: [0.4847, 0.4162, 0.3979]
+          std: [0.2876, 0.2949, 0.3080]
+    depth_transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          mean: [0.3786, 0.3786, 0.3786]
+          std: [0.3205, 0.3205, 0.3205]
+
+    target_transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # sunrgbd depth anything
+          mean: [0.5503, 0.5503, 0.5503]
+          std: [0.2272, 0.2272, 0.2272]
+    label_transforms: ~
+
+  # Losses
+  losses:
+    ~
+    # loss:
+    #   type: native_scaler
+    #   weight: 1.0
+    #   params: ~
+
+  # Optimizer
+  opt_params:
+    lr_default: 1.5e-04
+    wd_default: 0.01
+    betas: (0.9, 0.95)
+    momentum: ~
+    lr_list: ~
+    group_keys: ~
+    wd_list: ~
+
+  opt_name: "adamw"
+  scheduler_name: "constant"
+  # Logger
+  use_tensorboard: True
+  tensorboard_folder:
+  log_dir: log/mae/nyuv2/dual_swin_small_normalized_target_depthanything
+  output_dir: output_dir/mae/nyuv2/dual_swin_small_normalized_target_depthanything
+  model_folder: ~
+

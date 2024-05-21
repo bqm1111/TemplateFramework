@@ -144,7 +144,8 @@ class DualSwinMAE(nn.Module):
         pos_embed = get_2d_sincos_pos_embed(
             self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
         )
-        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+        self.pos_embed.data.copy_(
+            torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         torch.nn.init.normal_(self.mask_token, std=0.02)
         self.apply(self._init_weights)
@@ -263,7 +264,8 @@ class DualSwinMAE(nn.Module):
         else:
             x_masked = torch.clone(x)
             for i in range(B):
-                x_masked[i, index_mask.cpu().numpy()[i, :], :] = self.mask_token
+                x_masked[i, index_mask.cpu().numpy()[i, :],
+                         :] = self.mask_token
             x_masked = rearrange(
                 x_masked, "B (H W) C -> B H W C", H=int(x_masked.shape[1] ** 0.5)
             )
@@ -323,7 +325,7 @@ class DualSwinMAE(nn.Module):
                 qkv_bias=self.qkv_bias,
                 drop=self.drop_rate,
                 attn_drop=self.attn_drop_rate,
-                drop_path=dpr[sum(self.depths[:i]) : sum(self.depths[: i + 1])],
+                drop_path=dpr[sum(self.depths[:i]): sum(self.depths[: i + 1])],
                 norm_layer=self.norm_layer,
                 # downsample=PatchMerging if i < self.num_layers - 1 else None,
                 downsample=None,
@@ -353,7 +355,7 @@ class DualSwinMAE(nn.Module):
                     qkv_bias=self.qkv_bias,
                     drop=self.drop_rate,
                     drop_path=dpr[
-                        sum(self.depths[:index]) : sum(self.depths[: index + 1])
+                        sum(self.depths[:index]): sum(self.depths[: index + 1])
                     ],
                     attn_drop=self.attn_drop_rate,
                     upsample=PatchExpanding if i < self.num_layers - 1 else None,
@@ -371,7 +373,8 @@ class DualSwinMAE(nn.Module):
         x_d = self.pos_drop_d(x_d)
 
         x, mask = self.window_masking(x, remove=False, mask_len_sparse=False)
-        x_d, mask_d = self.window_masking(x_d, remove=False, mask_len_sparse=False)
+        x_d, mask_d = self.window_masking(
+            x_d, remove=False, mask_len_sparse=False)
         outs = []
 
         for i in range(self.num_layers):
@@ -440,7 +443,8 @@ class DualSwinMAE(nn.Module):
     def forward(self, inputs: dict):
         x = inputs["rgb"]
         x_d = inputs["depth"]
-        depth_anything_target = inputs["depth_anything"]
+        if self.target_type == "rawDepthAnything":
+            depth_anything_target = inputs["depth_anything"]
         latent, mask, latent_d, mask_d = self.forward_encoder(x, x_d)
         pred, pred_d = self.forward_decoder(latent, latent_d)
         loss = self.forward_loss(x, pred, mask)
@@ -536,5 +540,6 @@ class dual_swinmae_b(DualSwinMAE):
 
 if __name__ == "__main__":
     net = dual_swinmae_b()
-    inputs = {"rgb": torch.ones(1, 3, 384, 384), "depth": torch.ones(1, 3, 384, 384)}
+    inputs = {"rgb": torch.ones(1, 3, 384, 384),
+              "depth": torch.ones(1, 3, 384, 384)}
     y = net(inputs)

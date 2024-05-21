@@ -22,6 +22,7 @@ class DepthDataset(Dataset):
         label_transforms=None,
         common_transforms=None,
     ):
+        self.dataset_name = None
         self.root_dir = root
         self.split = split
         self.transforms = transforms
@@ -48,52 +49,42 @@ class DepthDataset(Dataset):
         depth = Image.fromarray(np.stack((depth,) * 3, axis=-1))
         return depth
 
-    def __len__(self):
-        return len(self.all_index)
-
-
-class NYUv2Dataset(DepthDataset):
-    def __init__(
-        self,
-        root,
-        split,
-        transforms=None,
-        target_transforms=None,
-        depth_transforms=None,
-        label_transforms=None,
-        common_transforms=None,
-    ):
-        super(NYUv2Dataset, self).__init__(
-            root,
-            split,
-            transforms,
-            target_transforms,
-            depth_transforms,
-            label_transforms,
-            common_transforms,
-        )
-
     def __getitem__(self, index):
         file_index = self.all_index[index]
+        if self.dataset_name == "nyuv2":
+            file_index = str(file_index)
+        elif self.dataset_name == "sunrgbd":
+            file_index = str(file_index).zfill(6)
+        else:
+            raise NotImplementedError
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
         possible_output = {"rgb": self.transforms, "depth": self.depth_transforms,
                            "depth_anything": self.target_tranforms, "label": self.label_transforms}
         rgb = Image.open(
-            os.path.join(self.rgb_path, str(file_index) + ".jpg")
+            os.path.join(self.rgb_path, file_index + ".jpg")
         ).convert("RGB")
-        depth = np.load(os.path.join(
-            self.depth_path, str(file_index) + ".npy"))
+        if self.dataset_name == "nyuv2":
+            depth = np.load(os.path.join(
+                self.depth_path, file_index + ".npy"))
+        elif self.dataset_name == "sunrgbd":
+            depth = np.array(Image.open(os.path.join(
+                self.depth_path, file_index + ".png")))
+
         depth = self.convert_raw_depth_to_3_channels_img(depth)
-        if os.path.exists(self.raw_depth_anything_path):
+        if possible_output["depth_anything"]:
             raw_depth_anything = np.load(os.path.join(
-                self.raw_depth_anything_path, str(file_index) + ".npy"))
+                self.raw_depth_anything_path, file_index + ".npy"))
             raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
                 raw_depth_anything)
         else:
-            raw_depth_anything = depth
-        label = cv2.imread(os.path.join(
-            self.label_path, str(file_index) + ".png"), cv2.IMREAD_GRAYSCALE)
-        label = label - 1
+            raw_depth_anything = None
+        if possible_output["label"]:
+            label = cv2.imread(os.path.join(
+                self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE)
+            label = label - 1
+        else:
+            label = None
+
         all_output = {"rgb": rgb, "depth": depth,
                       "depth_anything": raw_depth_anything, "label": label}
         output = {}
@@ -120,6 +111,32 @@ class NYUv2Dataset(DepthDataset):
 
         return output
 
+    def __len__(self):
+        return len(self.all_index)
+
+
+class NYUv2Dataset(DepthDataset):
+    def __init__(
+        self,
+        root,
+        split,
+        transforms=None,
+        target_transforms=None,
+        depth_transforms=None,
+        label_transforms=None,
+        common_transforms=None,
+    ):
+        super(NYUv2Dataset, self).__init__(
+            root,
+            split,
+            transforms,
+            target_transforms,
+            depth_transforms,
+            label_transforms,
+            common_transforms,
+        )
+        self.dataset_name = "nyuv2"
+
 
 class SunRGBDDataset(DepthDataset):
     def __init__(
@@ -141,52 +158,7 @@ class SunRGBDDataset(DepthDataset):
             label_transforms,
             common_transforms,
         )
-
-    def __getitem__(self, index):
-        file_index = self.all_index[index]
-        # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
-        rgb = Image.open(
-            os.path.join(self.rgb_path, str(file_index + 1).zfill(6) + ".jpg")
-        ).convert("RGB")
-        depth = np.array(
-            Image.open(os.path.join(self.depth_path,
-                       str(file_index + 1).zfill(6) + ".png"))
-        )
-
-        raw_depth_anything = np.load(
-            os.path.join(self.raw_depth_anything_path,
-                         str(file_index + 1).zfill(6) + ".npy")
-        )
-        depth = self.convert_raw_depth_to_3_channels_img(depth)
-        raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
-            raw_depth_anything
-        )
-        label = cv2.imread(os.path.join(
-            self.label_path, str(file_index + 1).zfill(6) + ".png"), cv2.IMREAD_GRAYSCALE)
-
-        output = {"rgb": rgb, "depth": depth,
-                  "depth_anything": raw_depth_anything}
-        if self.common_transforms is not None:
-            output = self.common_transforms(**output)
-
-        # Transform image
-        if self.transforms is not None:
-            output["rgb"] = self.transforms(output["rgb"])
-
-        if self.depth_transforms is not None:
-            output["depth"] = self.depth_transforms(output["depth"])
-
-        if self.target_tranforms is not None:
-            output["depth_anything"] = self.target_tranforms(
-                output["depth_anything"])
-
-        if self.label_transforms is not None:
-            output["label"] = self.label_transforms(output["label"])
-
-        # Return output as a dictionary
-        if rgb is None and depth is None:
-            logger.error("Receive NoneType")
-        return output
+        self.dataset_name = "sunrgbd"
 
 
 if __name__ == "__main__":

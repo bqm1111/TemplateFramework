@@ -34,9 +34,9 @@ train:
 
   # Dataset
   dataset:
-    name: "sunrgbd"
+    name: "nyuv2"
     params:
-      root: "data/sunrgbd_trainval"
+      root: "data/NYUDepthv2"
       split: "train"
     common_transforms:
       random_resized_crop:
@@ -53,30 +53,17 @@ train:
         params: ~
       normalize:
         params:
-          # sunrgbd rgb
-          mean: [0.4960, 0.4686, 0.4415]
-          std: [0.2781, 0.2865, 0.2917]
-          # nyuv2
-          # mean: [0.4184, 0.3545, 0.3333]
-          # std: [0.2993, 0.2884, 0.2945]
+          mean: [0.4847, 0.4162, 0.3979]
+          std: [0.2876, 0.2949, 0.3080]
     depth_transforms:
       to_tensor:
         params: ~
-
       normalize:
         params:
-          # sunrgbd depth
-          mean: [0.4132, 0.4132, 0.4132]
-          std: [0.2703, 0.2703, 0.2703]
+          mean: [0.3786, 0.3786, 0.3786]
+          std: [0.3205, 0.3205, 0.3205]
 
-    target_transforms:
-      to_tensor:
-        params: ~
-      normalize:
-        params:
-          # sunrgbd depth
-          mean: [0.4975, 0.4975, 0.4975]
-          std: [0.2218, 0.2218, 0.2218]
+    target_transforms: ~
     label_transforms: ~
 
   # Losses
@@ -102,7 +89,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/mae/dual_swin_small_normalized_target_origin
-  output_dir: output_dir/mae/dual_swin_small_normalized_target_origin
+  log_dir: log/mae/nyuv2/dual_swin_small_normalized_target_origin
+  output_dir: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin
   model_folder: ~
 

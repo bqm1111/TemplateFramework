@@ -2,8 +2,8 @@
 model:
   name: "dual_swinmae_s"
   params:
-    norm_pix_loss: False
-    target_type: "origin"
+    norm_pix_loss: True
+    target_type: "rawDepthAnything"
 train:
   experiment_name: "mae"
   # Runner
@@ -74,7 +74,7 @@ train:
         params: ~
       normalize:
         params:
-          # sunrgbd depth
+          # sunrgbd depth anything
           mean: [0.4975, 0.4975, 0.4975]
           std: [0.2218, 0.2218, 0.2218]
     label_transforms: ~
@@ -102,7 +102,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/mae/dual_swin_small_unnormalized_target_origin
-  output_dir: output_dir/mae/dual_swin_small_unnormalized_target_origin
+  log_dir: log/mae/sunrgbd/dual_swin_small_normalized_target_depthanything
+  output_dir: output_dir/mae/sunrgbd/dual_swin_small_normalized_target_depthanything
   model_folder: ~
 
