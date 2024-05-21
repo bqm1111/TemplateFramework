@@ -21,8 +21,8 @@ import json
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from utils.misc import all_reduce_tensor, all_reduce_mean
 from torch.utils.tensorboard import SummaryWriter
-logger = get_root_logger()
 
+logger = get_root_logger()
 
 class BaseRunner():
     def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):

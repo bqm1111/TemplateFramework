@@ -16,10 +16,10 @@ train:
   runner_name: mae
   distributed: False
   device: cuda:0
-  resume: output_dir/dual_swin_small_normalized_target_origin/checkpoint-2080.pth
+  resume: output_dir/dual_swin_small_normalized_target_origin/checkpoint-2240.pth
 
   # Dataloader
-  batch_size: 32
+  batch_size: 16
   num_workers: 4
   drop_last: True
 

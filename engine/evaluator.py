@@ -33,7 +33,7 @@ class Evaluator:
         if not os.path.exists(self.val_logdir):
             os.makedirs(self.val_logdir)
         with open(os.path.join(self.val_logdir, "result.txt"), 'a') as f:
-            # self.model.load_state_dict(torch.load(model_file)["model"])
+            self.model.load_state_dict(torch.load(model_file)["model"])
             result_line = self.single_process_evaluation()
             f.write('Model: ' + self.cfg.model.name + '\n')
             f.write(result_line)
@@ -44,6 +44,8 @@ class Evaluator:
         all_results = []
         for idx, data in enumerate(tqdm(self.val_loader)):
             results_dict = self.func_per_iteration(idx, data)
+            # if cv2.waitKey() == ord('q'):
+            #     break
             all_results.append(results_dict)
 
         result_line = self.compute_metric(all_results)
@@ -101,10 +103,11 @@ class Evaluator:
 
     def func_per_iteration(self, iter, data):
         label = data["label"]
-        # pred = self.eval(data)
-        pred = label
+        pred = self.eval(data)
+        print(pred.shape)
+        # cv2.imshow("pred", pred.cpu().numpy().transpose(1, 2, 0).astype(np.uint8))
         hist_tmp, labeled_tmp, correct_tmp = self.hist_info(
-            self.num_classes, np.array(pred), np.array(label))
+            self.num_classes, np.array(pred.cpu()), np.array(label.cpu()))
         results_dict = {
             "hist": hist_tmp,
             "labeled": labeled_tmp,
@@ -119,7 +122,7 @@ class Evaluator:
 
             # save colored result
             result_img = Image.fromarray(pred.astype(np.uint8), mode="P")
-            class_colors = get_class_colors(self.num_classes + 1)
+            class_colors = get_class_colors(self.num_classes)
             palette_list = list(np.array(class_colors).flat)
             if len(palette_list) < 768:
                 palette_list += [0] * (768 - len(palette_list))
@@ -131,13 +134,14 @@ class Evaluator:
             logger.info("Save the image " + fn)
 
         if self.val_cfg.show_image:
-            colors = get_class_colors(self.num_classes + 1)
+            colors = get_class_colors(self.num_classes)
             image = data["rgb"].squeeze(0).cpu().numpy()
             image = image.transpose(1, 2, 0)
-            print(pred.type)
+            pred = pred.squeeze(0).cpu().numpy()
             cv2.imshow("img", image)
-            cv2.imshow("pred", pred.squeeze(0).numpy())
-            cv2.waitKey()
+            cv2.imshow("pred", pred.astype(np.uint8))
+            # cv2.waitKey()
+
             clean = np.zeros(label.shape)
             comp_img = show_img(colors, self.val_cfg.background,
                                 image, clean, label, pred)
@@ -148,10 +152,11 @@ class Evaluator:
 
     def eval(self, data):
         self.model.eval()
-        self.model.to(data["rgb"].get_device())
+        # self.model.to(data["rgb"].get_device())
+        for key, value in data.items():
+            data[key] = value.cuda()
+        self.model = self.model.cuda()
         with torch.no_grad():
-            score = self.model(data)
-            pred = score[0]
-        pred = pred.argmax(2)
+            score = self.model(data["rgb"], data["depth"])
+        pred = score.argmax(1)
         return pred
-    

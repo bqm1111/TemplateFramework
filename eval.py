@@ -14,13 +14,11 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--config")
 
 
-
-
 if __name__ == '__main__':
     args = parser.parse_args()
     config = OmegaConf.load(args.config)
 
     segmentor = Evaluator(config)
-    segmentor.run("output_dir/dual_swin_small_normalized_target_depthanything/checkpoint-720.pth")
+    segmentor.run("output_dir/semseg/dual_swin_small_normalized_target_origin/checkpoint-500.pth")
 
 

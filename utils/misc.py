@@ -369,6 +369,8 @@ def save_model(args, epoch, model, model_without_ddp, optimizer, loss_scaler):
                 "epoch": epoch,
                 "args": args,
             }
+            save_on_master(to_save, checkpoint_path)
+
 
 
 def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):

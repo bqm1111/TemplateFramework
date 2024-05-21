@@ -74,30 +74,32 @@ class NYUv2Dataset(DepthDataset):
         )
 
     def __getitem__(self, index):
+        file_index = self.all_index[index]
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
         possible_output = {"rgb": self.transforms, "depth": self.depth_transforms,
                            "depth_anything": self.target_tranforms, "label": self.label_transforms}
         rgb = Image.open(
-            os.path.join(self.rgb_path, str(index) + ".jpg")
+            os.path.join(self.rgb_path, str(file_index) + ".jpg")
         ).convert("RGB")
-        depth = np.load(os.path.join(self.depth_path, str(index) + ".npy"))
+        depth = np.load(os.path.join(
+            self.depth_path, str(file_index) + ".npy"))
         depth = self.convert_raw_depth_to_3_channels_img(depth)
         if os.path.exists(self.raw_depth_anything_path):
             raw_depth_anything = np.load(os.path.join(
-                self.raw_depth_anything_path, str(index) + ".npy"))
+                self.raw_depth_anything_path, str(file_index) + ".npy"))
             raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
                 raw_depth_anything)
         else:
             raw_depth_anything = depth
         label = cv2.imread(os.path.join(
-            self.label_path, str(index) + ".png"), cv2.IMREAD_GRAYSCALE)
+            self.label_path, str(file_index) + ".png"), cv2.IMREAD_GRAYSCALE)
         label = label - 1
         all_output = {"rgb": rgb, "depth": depth,
-                  "depth_anything": raw_depth_anything, "label": label}
+                      "depth_anything": raw_depth_anything, "label": label}
         output = {}
         for key, value in possible_output.items():
             if value is not None:
-                output[key] = all_output[key] 
+                output[key] = all_output[key]
         if self.common_transforms is not None:
             output = self.common_transforms(**output)
 
@@ -141,25 +143,26 @@ class SunRGBDDataset(DepthDataset):
         )
 
     def __getitem__(self, index):
+        file_index = self.all_index[index]
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
         rgb = Image.open(
-            os.path.join(self.rgb_path, str(index + 1).zfill(6) + ".jpg")
+            os.path.join(self.rgb_path, str(file_index + 1).zfill(6) + ".jpg")
         ).convert("RGB")
         depth = np.array(
             Image.open(os.path.join(self.depth_path,
-                       str(index + 1).zfill(6) + ".png"))
+                       str(file_index + 1).zfill(6) + ".png"))
         )
 
         raw_depth_anything = np.load(
             os.path.join(self.raw_depth_anything_path,
-                         str(index + 1).zfill(6) + ".npy")
+                         str(file_index + 1).zfill(6) + ".npy")
         )
         depth = self.convert_raw_depth_to_3_channels_img(depth)
         raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
             raw_depth_anything
         )
         label = cv2.imread(os.path.join(
-            self.label_path, str(index + 1).zfill(6) + ".png"), cv2.IMREAD_GRAYSCALE)
+            self.label_path, str(file_index + 1).zfill(6) + ".png"), cv2.IMREAD_GRAYSCALE)
 
         output = {"rgb": rgb, "depth": depth,
                   "depth_anything": raw_depth_anything}
