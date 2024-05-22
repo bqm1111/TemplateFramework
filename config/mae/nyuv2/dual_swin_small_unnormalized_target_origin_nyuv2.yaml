@@ -19,8 +19,8 @@ train:
   resume: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin/checkpoint-640.pth
 
   # Dataloader
-  batch_size: 8
-  num_workers: 32
+  batch_size: 32
+  num_workers: 64
   drop_last: True
 
   # Hyperparameter

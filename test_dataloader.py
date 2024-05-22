@@ -5,7 +5,7 @@ import cv2
 from utils.helper import show_pil_image
 
 if __name__ == "__main__":
-    config = OmegaConf.load("config/mae/dual_swin_small_normalized_target_depthanything.yaml")
+    config = OmegaConf.load("config/mae/nyuv2/dual_swin_small_normalized_target_depthanything_nyuv2.yaml")
     train_cfg = config.train
     dataset = get_dataset(train_cfg.dataset)
     train_loader = DataLoader(dataset, batch_size=1,

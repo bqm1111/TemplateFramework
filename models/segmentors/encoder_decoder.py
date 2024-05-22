@@ -104,3 +104,4 @@ if __name__ == '__main__':
 
     y = net(torch.ones(1, 3, 224, 224).float(), torch.ones(
         1, 3, 224, 224).float(), torch.randint(0, 40, (1, 224, 224)).long())
+    

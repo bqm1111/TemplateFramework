@@ -6,4 +6,11 @@ def nyuv2_classname():
 
 
 def sunrgbd_classname():
-    return None
+    return ['wall', 'floor', 'cabinet', 'bed', 'chair',
+            'sofa', 'table', 'door', 'window', 'bookshelf',
+            'picture', 'counter', 'blinds', 'desk', 'shelves',
+            'curtain', 'dresser', 'pillow', 'mirror',
+            'floor mat', 'clothes', 'ceiling', 'books',
+            'fridge', 'tv', 'paper', 'towel', 'shower curtain',
+            'box', 'whiteboard', 'person', 'night stand',
+            'toilet', 'sink', 'lamp', 'bathtub', 'bag']

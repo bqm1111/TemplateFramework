@@ -20,7 +20,7 @@ train:
 
   # Dataloader
   batch_size: 32
-  num_workers: 4
+  num_workers: 64
   drop_last: True
 
   # Hyperparameter
