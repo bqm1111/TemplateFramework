@@ -1,15 +1,7 @@
-import scipy.io
 import cv2
 import os
-from tqdm import tqdm
 import numpy as np
-
-
-def convert_depth_to_image(depth):
-    max_depth = np.max(depth)
-    depth = (depth / max_depth * 255.0).astype(np.uint8)
-    depth = np.stack((depth,) * 3, axis=-1)
-    return depth
+from utils.helper import convert_depth_to_image
 
 
 raw_depth_path = "data/NYUDepthv2/depth"

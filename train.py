@@ -54,11 +54,12 @@ if __name__ == "__main__":
                       **config.model.params)
     # TODO: Unify interface for MAE and SemSeg training
 
-    if train_cfg.experiment_name == "mae":
+    if config.experiment_type == "mae":
         opt_params = optim_factory.param_groups_weight_decay(
             model, train_cfg.weight_decay)
-    elif train_cfg.experiment_name == "semseg":
-        opt_params = group_weight(model, config.model.params.norm_layer, train_cfg.lr)
+    elif config.experiment_type == "semseg":
+        opt_params = group_weight(
+            model, config.model.params.norm_layer, train_cfg.lr)
 
     optimizer = get_optimizer(
         opt_name=train_cfg.opt_name,
@@ -71,9 +72,8 @@ if __name__ == "__main__":
         optimizer=optimizer, lr_scheduler=train_cfg.scheduler_name
     )
 
-    runner = get_runner(train_cfg)(
-        model, optimizer, losses, scheduler, train_loader, val_loader, train_cfg, val_cfg, test_cfg
-    )
+    runner = get_runner(config.experiment_type)(config, model, optimizer,
+                                                losses, scheduler, train_loader, val_loader)
 
     # train_step
     runner.train()

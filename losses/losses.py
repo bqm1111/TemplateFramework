@@ -12,8 +12,6 @@ class CustomLoss(nn.Module):
         raise NotImplementedError
 
 # For KL divergence, see Appendix B in VAE paper or http://yunjey47.tistory.com/43
-
-
 class KLDivergenceLoss(nn.Module):
     def __init__(self) -> None:
         super().__init__()

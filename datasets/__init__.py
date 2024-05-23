@@ -20,6 +20,7 @@ ALL_TRANSFORM = {
     "to_tensor": T.ToTensor,
     "RandomHorizontalFlip": T.RandomHorizontalFlip,
     "normalize": T.Normalize,
+    "to_pil": T.ToPILImage
 }
 ALL_CUSTOM_TRANSFORM = {
     "random_mirror": RandomMirror,

@@ -24,17 +24,17 @@ from torch.utils.tensorboard import SummaryWriter
 
 logger = get_root_logger()
 
+
 class BaseRunner():
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
+    def __init__(self, config, model, optimizer, losses, scheduler, train_loader, val_loader=None):
         self.optimizer = optimizer
         self.losses = losses
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.model = model
         self.scheduler = scheduler
-        self.train_cfg = train_cfg
-        self.val_cfg = val_cfg
-        self.test_cfg = test_cfg
+        self.cfg = config
+        self.train_cfg = config.train
         self.trainer_timer = Timer()
         self.eval_timer = Timer()
         self.logger = get_root_logger()
@@ -52,38 +52,41 @@ class BaseRunner():
         raise NotImplementedError
 
     def train(self):
-        cfg = self.train_cfg
-        self.device = cfg.device
-        os.makedirs(cfg.log_dir, exist_ok=True)
-        if cfg.log_dir is not None:
-            self.log_writer = SummaryWriter(log_dir=cfg.log_dir)
-        self.model.to(cfg.device)
+        train_cfg = self.train_cfg
+        self.device = train_cfg.device
+        os.makedirs(train_cfg.log_dir, exist_ok=True)
+        if train_cfg.log_dir is not None:
+            self.log_writer = SummaryWriter(log_dir=os.path.join(
+                train_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name))
+        self.model.to(train_cfg.device)
         self.model_without_ddp = self.model
-        if cfg.distributed:
+        if train_cfg.distributed:
             self.model = torch.nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[cfg.gpu], find_unused_parameters=True)
+                self.model, device_ids=[train_cfg.gpu], find_unused_parameters=True)
             self.model_without_ddp = self.model.module
 
         start_epoch = 1
-        if cfg.resume is not None:
+        if train_cfg.resume is not None:
             start_epoch = misc.load_model_to_resume(
-                cfg, self.model, optimizer=self.optimizer, loss_scaler=self.loss_scaler)
+                train_cfg, self.model, optimizer=self.optimizer, loss_scaler=self.loss_scaler)
 
         self.model.train()
         start_time = time.time()
-        if not os.path.exists(cfg.output_dir):
-            os.makedirs(cfg.output_dir)
+        output_dir = os.path.join(
+            train_cfg.output_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-        for epoch in range(start_epoch, cfg.num_epochs + 1):
+        for epoch in range(start_epoch, train_cfg.num_epochs + 1):
             self.epoch = epoch
-            if cfg.distributed:
+            if train_cfg.distributed:
                 self.train_loader.sampler.set_epoch(epoch)
 
             self.train_one_epoch()
 
-            if cfg.output_dir and (epoch % cfg.saving_interval == 0 or epoch == cfg.num_epochs) and epoch >= cfg.start_saving_epoch:
+            if train_cfg.output_dir and (epoch % train_cfg.saving_interval == 0 or epoch == train_cfg.num_epochs) and epoch >= train_cfg.start_saving_epoch:
                 misc.save_model(
-                    args=cfg, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
+                    args=train_cfg, output_dir=output_dir, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
 
         total_time = time.time() - start_time
@@ -92,11 +95,10 @@ class BaseRunner():
 
 
 class MAERunner(BaseRunner):
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
-        super().__init__(model, optimizer, losses, scheduler,
-                         train_loader, val_loader, train_cfg, val_cfg, test_cfg)
+    def __init__(self, config, model, optimizer, losses, scheduler, train_loader, val_loader=None):
+        super().__init__(config, model, optimizer, losses, scheduler,
+                         train_loader, val_loader)
         self.loss_scaler = NativeScaler()
-        self.train_cfg = train_cfg
 
     def train_one_epoch(self):
         cfg = self.train_cfg
@@ -176,15 +178,14 @@ class MAERunner(BaseRunner):
 
 
 class SemSegRunner(BaseRunner):
-    def __init__(self, model, optimizer, losses, scheduler, train_loader, val_loader=None, train_cfg=None, val_cfg=None, test_cfg=None):
-        super().__init__(model, optimizer, losses, scheduler,
-                         train_loader, val_loader, train_cfg, val_cfg, test_cfg)
-        self.train_cfg = train_cfg
+    def __init__(self, config, model, optimizer, losses, scheduler, train_loader, val_loader=None):
+        super().__init__(config, model, optimizer, losses, scheduler,
+                         train_loader, val_loader)
         self.loss_scaler = None
         niters_per_epoch = len(self.train_loader)
         total_iteration = self.train_cfg.num_epochs * niters_per_epoch
         self.scheduler = lr_policy.WarmUpPolyLR(
-            train_cfg.lr, train_cfg.lr_power, total_iteration, niters_per_epoch * train_cfg.warmup_epoch)
+            self.train_cfg.lr, self.train_cfg.lr_power, total_iteration, niters_per_epoch * self.train_cfg.warmup_epoch)
 
     def train_one_epoch(self):
         cfg = self.train_cfg

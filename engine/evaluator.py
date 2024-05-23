@@ -18,7 +18,8 @@ logger = get_root_logger()
 
 
 class Evaluator:
-    def __init__(self, cfg, model):
+    def __init__(self, cfg, model, show=False):
+        self.show_image = show
         self.cfg = cfg
         self.val_cfg = cfg.val
         self.model = model
@@ -100,7 +101,7 @@ class Evaluator:
             cv2.imwrite(os.path.join(self.save_path, fn), pred)
             logger.info("Save the image " + fn)
 
-        if self.val_cfg.show_image:
+        if self.show_image:
             colors = np.array(get_class_colors(self.num_classes))
             pred_arr = pred.squeeze(0).cpu().numpy().astype(np.uint8)
             img = np.zeros_like(pred_arr)
@@ -108,7 +109,8 @@ class Evaluator:
             img[:] = colors[pred_arr[:]]
             cv2.imshow("pred", img)
 
-            cv2.waitKey()
+            if cv2.waitKey() == ord('q'):
+                exit(0)
 
     def eval(self, data):
         self.model.eval()

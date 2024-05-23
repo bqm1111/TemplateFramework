@@ -1,3 +1,7 @@
+experiment_type: "mae"
+experiment_dataset: "nyuv2"
+experiment_name: "dual_swin_small_normalized_target_depthanything_ImageNet"
+
 # Model
 model:
   name: "dual_swinmae_s"
@@ -5,7 +9,6 @@ model:
     norm_pix_loss: True
     target_type: "rawDepthAnything"
 train:
-  experiment_name: "mae"
   # Runner
   num_epochs: 4000
   start_saving_epoch: 600
@@ -16,7 +19,7 @@ train:
   runner_name: mae
   distributed: False
   device: cuda:0
-  resume: output_dir/mae/nyuv2/dual_swin_small_normalized_target_depthanything/checkpoint-2000.pth
+  resume: ~
 
   # Dataloader
   batch_size: 32
@@ -53,15 +56,18 @@ train:
         params: ~
       normalize:
         params:
-          mean: [0.4847, 0.4162, 0.3979]
-          std: [0.2876, 0.2949, 0.3080]
+          # mean: [0.4847, 0.4162, 0.3979]
+          # std: [0.2876, 0.2949, 0.3080]
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+
     depth_transforms:
       to_tensor:
         params: ~
-      normalize:
-        params:
-          mean: [0.3786, 0.3786, 0.3786]
-          std: [0.3205, 0.3205, 0.3205]
+      # normalize:
+      #   params:
+      #     mean: [0.3786, 0.3786, 0.3786]
+      #     std: [0.3205, 0.3205, 0.3205]
 
     target_transforms:
       to_tensor:
@@ -96,7 +102,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/mae/nyuv2/dual_swin_small_normalized_target_depthanything
-  output_dir: output_dir/mae/nyuv2/dual_swin_small_normalized_target_depthanything
+  log_dir: log/
+  output_dir: output_dir/
   model_folder: ~
 

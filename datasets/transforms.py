@@ -1,16 +1,15 @@
+from lib2to3.pytree import convert
 import torch
 import torch.nn as nn
-import torchvision.transforms as T
 from torchvision.transforms.functional import (
     _interpolation_modes_from_int,
-    crop,
     center_crop,
 )
 
 from typing import List, Tuple
 import math
 from torchvision.transforms import functional as F
-import copy
+
 
 class CropBorder(nn.Module):
     def __init__(self, width, height) -> None:
@@ -21,6 +20,7 @@ class CropBorder(nn.Module):
     def forward(self, x: torch.Tensor):
         w, h = x.size
         return center_crop(x, [h - self.height, w - self.width])
+
 
 def get_crop_params(img, scale: List[float], ratio: List[float]) -> Tuple[int, int, int, int]:
     """Get parameters for ``crop`` for a random sized crop.
@@ -99,6 +99,7 @@ class RandomResizedCrop:
             break
         i, j, h, w = get_crop_params(img, self.scale, self.ratio)
         for key, value in kwargs.items():
+            # value = F.to_pil_image(value)
             if key == "label":
                 res[key] = F.resized_crop(
                     value, i, j, h, w, self.size, self.label_interpolation)
@@ -125,5 +126,16 @@ class RandomMirror:
 
 if __name__ == '__main__':
     from PIL import Image
-    img = Image.open("data/NYUDepthv2/seglabel/0.png")
-    print(get_crop_params(img, scale=[0.2, 0.4], ratio=(0.2, 0.4)))
+    import cv2
+    import numpy as np
+    from utils.helper import convert_depth_to_image
+    label = cv2.imread("data/NYUDepthv2/seglabel/13.png", cv2.IMREAD_GRAYSCALE)
+    depth = np.load("data/NYUDepthv2/depth/13.npy")
+    depth_anything = np.load("data/NYUDepthv2/rawDepthAnything/13.npy")
+    depth = convert_depth_to_image(depth)
+    depth_anything = convert_depth_to_image(depth_anything)
+    cv2.imshow("depth", depth)
+    cv2.imshow("depth_anything", depth_anything)
+    cv2.imshow("label", label)
+    cv2.waitKey()
+

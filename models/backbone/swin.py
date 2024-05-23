@@ -5,7 +5,6 @@ import torch.nn.functional as F
 from einops import rearrange
 
 from typing import Optional
-
 from timm.models.layers import DropPath, to_2tuple, trunc_normal_
 from utils import checkpoint
 
@@ -239,7 +238,7 @@ class WindowAttention(nn.Module):
         attn_windows = (attn @ v).transpose(1, 2).reshape(B_, N, C)
         attn_windows = self.proj(attn_windows)
         attn_windows = self.proj_drop(attn_windows)
-        
+
         # Merge window
         attn_windows = attn_windows.view(-1,
                                          self.window_size, self.window_size, C)

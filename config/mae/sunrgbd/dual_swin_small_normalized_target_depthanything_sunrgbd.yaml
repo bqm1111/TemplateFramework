@@ -1,3 +1,6 @@
+experiment_type: "mae"
+experiment_dataset: "sunrgbd"
+experiment_name: "dual_swin_small_normalized_target_depthanything"
 # Model
 model:
   name: "dual_swinmae_s"
@@ -5,7 +8,6 @@ model:
     norm_pix_loss: True
     target_type: "rawDepthAnything"
 train:
-  experiment_name: "mae"
   # Runner
   num_epochs: 4000
   start_saving_epoch: 600
@@ -102,7 +104,7 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/mae/sunrgbd/dual_swin_small_normalized_target_depthanything
-  output_dir: output_dir/mae/sunrgbd/dual_swin_small_normalized_target_depthanything
+  log_dir: log/
+  output_dir: output_dir/
   model_folder: ~
 

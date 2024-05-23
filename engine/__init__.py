@@ -56,10 +56,10 @@ def get_optimizer(opt_name, **kwargs):
     return AVAI_OPT[opt_name](**{k: v for k, v in kwargs.items() if v is not None})
 
 
-def get_runner(cfg):
-    if cfg.runner_name not in AVAI_RUNNER:
+def get_runner(name):
+    if name not in AVAI_RUNNER:
         print("not supported runner name, please implement it first.")
-    return AVAI_RUNNER[cfg.runner_name]
+    return AVAI_RUNNER[name]
 
 
 def get_scheduler(

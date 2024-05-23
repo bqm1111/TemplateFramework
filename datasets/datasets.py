@@ -1,12 +1,10 @@
 import cv2
 import numpy as np
-import torch
 from torch.utils.data import Dataset
 import os
-import torchvision
-from PIL import Image, ImageOps
+from PIL import Image
 from utils.logger import get_root_logger
-from utils.helper import show_pil_image
+from utils.helper import convert_depth_to_image
 
 logger = get_root_logger()
 
@@ -42,13 +40,6 @@ class DepthDataset(Dataset):
         with open(all_index_file, "r") as f:
             self.all_index = [int(idx) for idx in f.readlines()]
 
-    @staticmethod
-    def convert_raw_depth_to_3_channels_img(depth):
-        max_depth = np.max(depth)
-        depth = (depth / max_depth * 255.0).astype(np.uint8)
-        depth = Image.fromarray(np.stack((depth,) * 3, axis=-1))
-        return depth
-
     def __getitem__(self, index):
         file_index = self.all_index[index]
         if self.dataset_name == "nyuv2":
@@ -70,18 +61,21 @@ class DepthDataset(Dataset):
             depth = np.array(Image.open(os.path.join(
                 self.depth_path, file_index + ".png")))
 
-        depth = self.convert_raw_depth_to_3_channels_img(depth)
+        depth = convert_depth_to_image(depth)
+        depth = Image.fromarray(depth)
         if possible_output["depth_anything"]:
             raw_depth_anything = np.load(os.path.join(
                 self.raw_depth_anything_path, file_index + ".npy"))
-            raw_depth_anything = self.convert_raw_depth_to_3_channels_img(
+            raw_depth_anything = convert_depth_to_image(
                 raw_depth_anything)
+            raw_depth_anything = Image.fromarray(raw_depth_anything)
         else:
             raw_depth_anything = None
         if possible_output["label"]:
             label = cv2.imread(os.path.join(
                 self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE)
             label = label - 1
+            label = Image.fromarray(label)
         else:
             label = None
 

@@ -1,3 +1,6 @@
+experiment_type: "semseg"
+experiment_dataset: "nyuv2"
+experiment_name: "dual_swin_small_normalized_target_origin_non_frozen_ckpt_2200"
 # Model
 model:
   name: "encoder_decoder"
@@ -91,16 +94,16 @@ train:
   # Logger
   use_tensorboard: True
   tensorboard_folder:
-  log_dir: log/semseg/nyuv2/dual_swin_small_normalized_target_origin_non_frozen_ckpt_2200
-  output_dir: output_dir/semseg/nyuv2/dual_swin_small_normalized_target_origin_non_frozen_ckpt_2200
+  log_dir: log/
+  output_dir: output_dir/
   model_folder: ~
 
 val:
   batch_size: 1
   background: 255
-  log_dir: log/eval/test
+  log_dir: log/eval/
   save_path: ~
-  show_image: True
+  show_image: False
   dataset:
     name: "nyuv2"
     params:

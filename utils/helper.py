@@ -56,7 +56,13 @@ def show_pil_image(window_name: str, img: Image):
     cv2_image = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     cv2.imshow(window_name, cv2_image)
 
+def convert_depth_to_image(depth):
+    max_depth = np.max(depth)
+    depth = (depth / max_depth * 255.0).astype(np.uint8)
+    depth = np.stack((depth,) * 3, axis=-1)
+    return depth
 
 if __name__ == '__main__':
     img = Image.open("data/NYUDepthv2/RGB/7.jpg").convert("RGB")
     show_pil_image("img", img)
+    
