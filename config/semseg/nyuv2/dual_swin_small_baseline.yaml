@@ -1,6 +1,6 @@
 experiment_type: "semseg"
 experiment_dataset: "nyuv2"
-experiment_name: "dual_swin_small_normalized_target_origin_frozen_2"
+experiment_name: "dual_swin_small_baseline"
 
 # Model
 model:
@@ -9,28 +9,29 @@ model:
     backbone:
       name: "swin_s"
       params:
-        frozen_stages: 2
+        frozen_stages: -1
     decoder:
       name: "mlp"
       params:
         in_channels: [96, 192, 384, 768]
     aux_head: ~
     norm_layer: "BatchNorm2d"
-    pretrained: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin/checkpoint-2240.pth
+    pretrained: ~
     train_cfg:
       bn_eps: 1e-3
       bn_momentum: 0.1
 
 train:
+  experiment_name: "semseg"
   # Runner
   runner_name: semseg
   distributed: False
   device: cuda
-  resume: ~
+  resume: output_dir/semseg/nyuv2/dual_swin_small_baseline/checkpoint-340.pth
 
   # Train config
   batch_size: 4
-  num_workers: 4
+  num_workers: 16
   drop_last: True
   lr: 6e-5
   lr_power: 0.9
@@ -40,7 +41,7 @@ train:
   warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
   saving_interval: 10
-  start_saving_epoch: 300
+  start_saving_epoch: 200
 
   # Dataset
   dataset:
@@ -50,7 +51,6 @@ train:
       split: "train"
       need_label: True
       need_depth_anything: False
-
     common_transforms:
       semseg_transform:
         params:
@@ -63,16 +63,16 @@ train:
       normalize:
         params:
           # nyuv2
-          mean: [0.485, 0.456, 0.406]
-          std: [0.229, 0.224, 0.225]
+          mean: [0.4949, 0.4267, 0.4039]
+          std: [0.2898, 0.2955, 0.3072]
     depth_transforms:
       to_tensor:
         params: ~
-      # normalize:
-      #   params:
-      #     # nyuv2 depth
-      #     mean: [0.3786, 0.3786, 0.3786]
-      #     std: [0.3205, 0.3205, 0.3205]
+      normalize:
+        params:
+          # nyuv2 depth
+          mean: [0.3880, 0.3880, 0.3880]
+          std: [0.3248, 0.3248, 0.3248]
 
     target_transforms: ~
     label_transforms:
@@ -131,7 +131,7 @@ val:
           std: [0.3248, 0.3248, 0.3248]
 
     target_transforms: ~
-    label_transforms: 
+    label_transforms:
       to_tensor:
         params: ~
 test:

@@ -41,6 +41,9 @@ train:
     params:
       root: "data/NYUDepthv2"
       split: "train"
+      need_label: False
+      need_depth_anything: True
+
     common_transforms:
       random_resized_crop:
         params:

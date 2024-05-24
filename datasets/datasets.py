@@ -1,3 +1,4 @@
+from doctest import FAIL_FAST
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
@@ -14,6 +15,8 @@ class DepthDataset(Dataset):
         self,
         root,
         split,
+        need_label,
+        need_depth_anything,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -33,6 +36,8 @@ class DepthDataset(Dataset):
         self.label_path = os.path.join(self.root_dir, "seglabel")
         self.raw_depth_anything_path = os.path.join(
             self.root_dir, "rawDepthAnything")
+        self.need_label = need_label
+        self.need_depth_anything = need_depth_anything
         all_index_file = os.path.join(self.root_dir, split + ".txt")
         if not os.path.exists(all_index_file):
             raise Exception(f"File does not exist {all_index_file}")
@@ -41,6 +46,7 @@ class DepthDataset(Dataset):
             self.all_index = [int(idx) for idx in f.readlines()]
 
     def __getitem__(self, index):
+        output = {}
         file_index = self.all_index[index]
         if self.dataset_name == "nyuv2":
             file_index = str(file_index)
@@ -49,8 +55,6 @@ class DepthDataset(Dataset):
         else:
             raise NotImplementedError
         # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
-        possible_output = {"rgb": self.transforms, "depth": self.depth_transforms,
-                           "depth_anything": self.target_tranforms, "label": self.label_transforms}
         rgb = Image.open(
             os.path.join(self.rgb_path, file_index + ".jpg")
         ).convert("RGB")
@@ -63,28 +67,21 @@ class DepthDataset(Dataset):
 
         depth = convert_depth_to_image(depth)
         depth = Image.fromarray(depth)
-        if possible_output["depth_anything"]:
+        output["rgb"] = rgb
+        output["depth"] = depth
+        if self.need_depth_anything:
             raw_depth_anything = np.load(os.path.join(
                 self.raw_depth_anything_path, file_index + ".npy"))
             raw_depth_anything = convert_depth_to_image(
                 raw_depth_anything)
             raw_depth_anything = Image.fromarray(raw_depth_anything)
-        else:
-            raw_depth_anything = None
-        if possible_output["label"]:
+            output["depth_anything"] = raw_depth_anything
+        if self.need_label:
             label = cv2.imread(os.path.join(
                 self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE)
             label = label - 1
-            label = Image.fromarray(label)
-        else:
-            label = None
+            output["label"] = label
 
-        all_output = {"rgb": rgb, "depth": depth,
-                      "depth_anything": raw_depth_anything, "label": label}
-        output = {}
-        for key, value in possible_output.items():
-            if value is not None:
-                output[key] = all_output[key]
         if self.common_transforms is not None:
             output = self.common_transforms(**output)
 
@@ -114,6 +111,8 @@ class NYUv2Dataset(DepthDataset):
         self,
         root,
         split,
+        need_label,
+        need_depth_anything,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -123,6 +122,8 @@ class NYUv2Dataset(DepthDataset):
         super(NYUv2Dataset, self).__init__(
             root,
             split,
+            need_label,
+            need_depth_anything,
             transforms,
             target_transforms,
             depth_transforms,
@@ -137,6 +138,8 @@ class SunRGBDDataset(DepthDataset):
         self,
         root,
         split,
+        need_label,
+        need_depth_anything,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -146,6 +149,8 @@ class SunRGBDDataset(DepthDataset):
         super(SunRGBDDataset, self).__init__(
             root,
             split,
+            need_label,
+            need_depth_anything,
             transforms,
             target_transforms,
             depth_transforms,

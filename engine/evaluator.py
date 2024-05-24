@@ -39,7 +39,7 @@ class Evaluator:
             self.model.load_state_dict(torch.load(model_file)["model"])
             all_results = []
             for _, data in enumerate(tqdm(self.val_loader)):
-                label = data["label"]
+                label = data["label"].squeeze(1)
                 pred = self.eval(data)
                 hist_tmp, labeled_tmp, correct_tmp = hist_info(
                     self.num_classes, np.array(pred.cpu()), np.array(label.cpu()))

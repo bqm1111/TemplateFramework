@@ -7,7 +7,9 @@ from PIL import Image
 from models.backbone import dual_swin_mae
 from utils.logger import get_root_logger
 import os
-
+from utils.helper import convert_depth_to_image
+import sys
+sys.path.append("..")
 parser = argparse.ArgumentParser()
 parser.add_argument("--ckpt_path", type=str, help="Path to checkpoint")
 parser.add_argument(
@@ -46,6 +48,19 @@ if __name__ == "__main__":
             "mean": np.array([0.4975, 0.4975, 0.4975]),
             "std": np.array([0.2218, 0.2218, 0.2218]),
         }
+    NORM_RGB = {
+        "mean": np.array([0.485, 0.456, 0.406]),
+        "std": np.array([0.229, 0.224, 0.225]),
+    }
+
+    NORM_DEPTH = {
+        "mean": np.array([0, 0, 0]),
+        "std": np.array([1, 1, 1]),
+    }
+    NORM_DEPTH_ANYTHING = {
+        "mean": np.array([0, 0, 0]),
+        "std": np.array([1, 1, 1]),
+    }
 
 
     def show_image(image, use_norm, norm, title=""):
@@ -53,7 +68,8 @@ if __name__ == "__main__":
         assert image.shape[2] == 3
         if use_norm:
             plt.imshow(
-                torch.clip((image * norm["std"] + norm["mean"]) * 255, 0, 255).int()
+                torch.clip(
+                    (image * norm["std"] + norm["mean"]) * 255, 0, 255).int()
             )
         else:
             plt.imshow(torch.clip(image * 255, 0, 255).int())
@@ -82,17 +98,19 @@ if __name__ == "__main__":
         x_d = torch.tensor(x_d)
         x_d = x_d.unsqueeze(dim=0)
         x_d = torch.einsum("nhwc->nchw", x_d)
-        
+
         depth_anything = torch.tensor(depth_anything)
         depth_anything = depth_anything.unsqueeze(dim=0)
         depth_anything = torch.einsum("nhwc->nchw", depth_anything)
 
-        img = {"rgb": x.float(), "depth": x_d.float(), "depth_anything": depth_anything}
+        img = {"rgb": x.float(), "depth": x_d.float(),
+               "depth_anything": depth_anything}
         # run MAE
         # loss, y, mask = model(x.float(), mask_ratio=0.75)
         loss, y, mask = model(img)
         process_output(x, y["rgb"], mask["rgb"], model, use_norm, NORM_RGB)
-        process_output(x_d, y["depth"], mask["depth"], model, use_norm, NORM_DEPTH)
+        process_output(x_d, y["depth"], mask["depth"],
+                       model, use_norm, NORM_DEPTH)
 
     def process_output(x, y, mask, model, use_norm, norm):
 
@@ -133,10 +151,11 @@ if __name__ == "__main__":
         show_image(im_paste[0], use_norm, norm, "reconstruction + visible")
 
     def process_depth_img(depth):
-        depth = Image.fromarray((depth / np.max(depth) * 255.0).astype(np.uint8))
+        depth = convert_depth_to_image(depth)
+        depth = Image.fromarray(depth)
         depth = depth.resize((224, 224))
         depth = np.array(depth) / 255.0
-        depth = np.stack((depth,) * 3, axis=-1)
+        # depth = np.stack((depth,) * 3, axis=-1)
         return depth
 
     # load an image
@@ -160,8 +179,6 @@ if __name__ == "__main__":
         )
         depth = np.array(np.load(depth_path))
 
-
-
     # Preprocess inputs
     rgb = Image.open(rgb_path)
     rgb = rgb.resize((224, 224))
@@ -183,10 +200,12 @@ if __name__ == "__main__":
     inputs = {"rgb": rgb, "depth": depth, "depth_anything": raw_depth_anything}
     plt.rcParams["figure.figsize"] = [5, 5]
 
-    chkpt_dir = os.path.join(args.ckpt_path, "checkpoint-" + str(args.epoch) + ".pth")
+    chkpt_dir = os.path.join(
+        args.ckpt_path, "checkpoint-" + str(args.epoch) + ".pth")
     model_mae = prepare_model(chkpt_dir, "dual_swinmae_s")
     print("Model loaded.")
     torch.manual_seed(2)
     print("MAE with pixel reconstruction:")
     run_model(inputs, model_mae, args.use_norm)
     plt.show()
+    

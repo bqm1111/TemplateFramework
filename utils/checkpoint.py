@@ -38,7 +38,8 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
         # complicated structure, e.g., nn.Module(nn.Module(DDP))
         # if is_module_wrapper(module):
         #     module = module.module
-        local_metadata = {} if metadata is None else metadata.get(prefix[:-1], {})
+        local_metadata = {} if metadata is None else metadata.get(
+            prefix[:-1], {})
         module._load_from_state_dict(
             state_dict,
             prefix,
@@ -56,7 +57,8 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
     load = None  # break load->load reference cycle
 
     # ignore "num_batches_tracked" of BN layers
-    missing_keys = [key for key in all_missing_keys if "num_batches_tracked" not in key]
+    missing_keys = [
+        key for key in all_missing_keys if "num_batches_tracked" not in key]
 
     if unexpected_keys:
         err_msg.append(
@@ -68,7 +70,8 @@ def load_state_dict(module, state_dict, strict=False, logger=None):
         )
 
     if len(err_msg) > 0:
-        err_msg.insert(0, "The model and loaded state dict do not match exactly\n")
+        err_msg.insert(
+            0, "The model and loaded state dict do not match exactly\n")
         err_msg = "\n".join(err_msg)
         if strict:
             raise RuntimeError(err_msg)
@@ -84,7 +87,8 @@ def load_checkpoint(model, filename, map_location="cpu", strict=False, logger=No
     checkpoint = torch.load(filename, map_location=map_location)
     # OrderedDict is a subclass of dict
     if not isinstance(checkpoint, dict):
-        raise RuntimeError(f"No state_dict found in checkpoint file {filename}")
+        raise RuntimeError(
+            f"No state_dict found in checkpoint file {filename}")
 
     if "state_dict" in checkpoint:
         state_dict = checkpoint["state_dict"]
@@ -153,4 +157,50 @@ def load_dual_branch_model_from_mae_pretrained(model, model_file: str):
 
     del state_dict
     logger.info("Successfully load dual branch model from mae pretrained")
+    return model
+
+
+def load_swin_pretrained_model(model, model_file):
+    logger.info(f"Loading pretrained from {model_file}")
+    pretrained = torch.load(model_file)
+    state_dict = {}
+    if "state_dict" in pretrained.keys():
+        for key, value in pretrained["state_dict"].items():
+            if "backbone." in key:
+                # Hack to load weight from key "backbone.layers.1.downsample.norm.weight" to key "downsample.1.reduction.weight"
+                if "downsample" in key:
+                    all_key_parts = key.split(".")
+                    new_key_part = [all_key_parts[3], all_key_parts[2],
+                                    all_key_parts[4], all_key_parts[5]]
+                    new_key = ".".join(new_key_part)
+                    prefix_depth = new_key.split(".")[0]
+                else:
+                    new_key = key[9:]
+                    prefix_depth = new_key.split(".")[0]
+
+                depth_key = prefix_depth + "_d"
+                depth_key = depth_key + new_key[len(prefix_depth):]
+                state_dict[new_key] = value
+                state_dict[depth_key] = value
+    elif "model" in pretrained.keys():
+        for key, value in pretrained["model"].items():
+            # Hack to load weight from key "backbone.layers.1.downsample.norm.weight" to key "downsample.1.reduction.weight"
+            if "downsample" in key:
+                all_key_parts = key.split(".")
+                new_key_part = [all_key_parts[2], all_key_parts[1],
+                                all_key_parts[3], all_key_parts[4]]
+                new_key = ".".join(new_key_part)
+                prefix_depth = new_key.split(".")[0]
+            else:
+                new_key = key
+                prefix_depth = new_key.split(".")[0]
+
+            depth_key = prefix_depth + "_d"
+            depth_key = depth_key + new_key[len(prefix_depth):]
+            state_dict[new_key] = value
+            state_dict[depth_key] = value
+    model.load_state_dict(state_dict, strict=False)
+    del state_dict
+    logger.info("Successfully load swin pretrained model")
+
     return model

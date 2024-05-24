@@ -14,12 +14,12 @@ logger = get_root_logger()
 parser = argparse.ArgumentParser()
 parser.add_argument("--config")
 parser.add_argument("--show", action='store_true')
-
+parser.add_argument("--epoch", type=int)
 if __name__ == '__main__':
     args = parser.parse_args()
     config = OmegaConf.load(args.config)
     model = get_model(config.model.name, eval=True, **config.model.params)
+    checkpoint_path = os.path.join("output_dir/", config.experiment_type, config.experiment_dataset,
+                                   config.experiment_name, "checkpoint-" + str(args.epoch) + ".pth")
     segmentor = Evaluator(config, model, args.show)
-    segmentor.run(
-        "output_dir/semseg/nyuv2/dual_swin_small_normalized_target_origin_frozen_1/checkpoint-390.pth")
-
+    segmentor.run(checkpoint_path)

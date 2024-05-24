@@ -1,6 +1,6 @@
 experiment_type: "mae"
 experiment_dataset: "nyuv2"
-experiment_name: "dual_swin_small_normalized_target_origin_ImageNet"
+experiment_name: "dual_swin_small_normalized_target_origin_ImageNet_swin_pretrained"
 
 # Model
 model:
@@ -8,6 +8,7 @@ model:
   params:
     norm_pix_loss: True
     target_type: "origin"
+    pretrained: pretrained/upernet_swin_small_patch4_window7_512x512.pth
 train:
   # Runner
   num_epochs: 4000
@@ -41,6 +42,9 @@ train:
     params:
       root: "data/NYUDepthv2"
       split: "train"
+      need_label: False
+      need_depth_anything: False
+
     common_transforms:
       random_resized_crop:
         params:

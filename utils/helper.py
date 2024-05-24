@@ -57,8 +57,12 @@ def show_pil_image(window_name: str, img: Image):
     cv2.imshow(window_name, cv2_image)
 
 def convert_depth_to_image(depth):
+
     max_depth = np.max(depth)
-    depth = (depth / max_depth * 255.0).astype(np.uint8)
+    mask = np.where(depth==0, 0, 1)
+    min_depth = np.min(depth[np.nonzero(depth)])
+    depth = ((depth - min_depth) / (max_depth - min_depth) * 255.0).astype(np.uint8)
+    depth = (depth * mask).astype(np.uint8)
     depth = np.stack((depth,) * 3, axis=-1)
     return depth
 

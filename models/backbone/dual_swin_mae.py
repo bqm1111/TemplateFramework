@@ -14,7 +14,7 @@ from models.pos_embed import get_2d_sincos_pos_embed
 from models.net_utils import FeatureFusionModule as FFM
 from models.net_utils import FeatureRectifyModule as FRM
 from utils.logger import get_root_logger
-
+from utils.checkpoint import load_swin_pretrained_model
 logger = get_root_logger()
 
 
@@ -39,10 +39,10 @@ class DualSwinMAE(nn.Module):
         patch_norm: bool = True,
         norm_fuse=nn.BatchNorm2d,
         out_indices=(0, 1, 2, 3),
-        frozen_stages=-1,
-        use_checkpoint=False,
+        ape=False,
         norm_pix_loss=False,
         target_type: str = "origin",
+        pretrained=None,
     ):
 
         super().__init__()
@@ -69,6 +69,7 @@ class DualSwinMAE(nn.Module):
         self.norm_fuse = norm_fuse
         self.out_indices = out_indices
         self.target_type = target_type
+        self.ape = ape
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
@@ -83,10 +84,10 @@ class DualSwinMAE(nn.Module):
             embed_dim=embed_dim,
             norm_layer=norm_layer if patch_norm else None,
         )
-
-        self.pos_embed = nn.Parameter(
-            torch.zeros(1, self.num_patches, embed_dim), requires_grad=False
-        )
+        if self.ape:
+            self.pos_embed = nn.Parameter(
+                torch.zeros(1, self.num_patches, embed_dim), requires_grad=False
+            )
 
         self.pos_drop = nn.Dropout(p=drop_rate)
         self.pos_drop_d = nn.Dropout(p=drop_rate)
@@ -120,35 +121,20 @@ class DualSwinMAE(nn.Module):
             layer_name_d = f"norm_d{i_layer}"
             self.add_module(layer_name_d, layer_d)
 
-        self.initialize_weights()
-        # self._freeze_stages()
+        self.init_weights(pretrained)
 
-    def _freeze_stages(self):
-        if self.frozen_stages >= 0:
-            self.patch_embed.eval()
-            for param in self.patch_embed.parameters():
-                param.requires_grad = False
-
-        if self.frozen_stages >= 1 and self.ape:
-            self.absolute_pos_embed.requires_grad = False
-
-        if self.frozen_stages >= 2:
-            self.pos_drop.eval()
-            for i in range(0, self.frozen_stages - 1):
-                m = self.layers[i]
-                m.eval()
-                for param in m.parameters():
-                    param.requires_grad = False
-
-    def initialize_weights(self):
-        pos_embed = get_2d_sincos_pos_embed(
-            self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
-        )
-        self.pos_embed.data.copy_(
-            torch.from_numpy(pos_embed).float().unsqueeze(0))
+    def init_weights(self, pretrained=None):
+        if self.ape:
+            pos_embed = get_2d_sincos_pos_embed(
+                self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
+            )
+            self.pos_embed.data.copy_(
+                torch.from_numpy(pos_embed).float().unsqueeze(0))
 
         torch.nn.init.normal_(self.mask_token, std=0.02)
         self.apply(self._init_weights)
+        if isinstance(pretrained, str):
+            load_swin_pretrained_model(self, pretrained)
 
     @staticmethod
     def _init_weights(m):
@@ -328,7 +314,7 @@ class DualSwinMAE(nn.Module):
                 drop_path=dpr[sum(self.depths[:i]): sum(self.depths[: i + 1])],
                 norm_layer=self.norm_layer,
                 # downsample=PatchMerging if i < self.num_layers - 1 else None,
-                downsample=None,
+                downsample=None
             )
             layers.append(layer)
         return layers
@@ -482,8 +468,6 @@ class dual_swinmae_t(DualSwinMAE):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
-            use_checkpoint=False,
             **kwargs,
         )
 
@@ -507,8 +491,6 @@ class dual_swinmae_s(DualSwinMAE):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
-            use_checkpoint=False,
             **kwargs,
         )
 
@@ -532,14 +514,19 @@ class dual_swinmae_b(DualSwinMAE):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            frozen_stages=-1,
-            use_checkpoint=False,
             **kwargs,
         )
 
 
 if __name__ == "__main__":
-    net = dual_swinmae_b()
-    inputs = {"rgb": torch.ones(1, 3, 384, 384),
-              "depth": torch.ones(1, 3, 384, 384)}
-    y = net(inputs)
+    net = dual_swinmae_s()
+    pretrained = "pretrained/upernet_swin_small_patch4_window7_512x512.pth"
+    net = load_swin_pretrained_model(net, pretrained)
+
+    # for key in net.state_dict().keys():
+    #     if "downsample" in key:
+    #         print(key)
+
+    # inputs = {"rgb": torch.ones(1, 3, 384, 384),
+    #           "depth": torch.ones(1, 3, 384, 384)}
+    # y = net(inputs)

@@ -130,12 +130,12 @@ class DualSwinSemSeg(nn.Module):
             pos_embed = get_2d_sincos_pos_embed(
                 self.pos_embed.shape[-1], int(self.num_patches**0.5), cls_token=False
             )
-            self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+            self.pos_embed.data.copy_(
+                torch.from_numpy(pos_embed).float().unsqueeze(0))
 
+        self.apply(self._init_weights)
         if isinstance(pretrained, str):
             load_dual_branch_model_from_mae_pretrained(self, pretrained)
-        else:
-            self.apply(self._init_weights)
 
     @staticmethod
     def _init_weights(m):
@@ -201,7 +201,7 @@ class DualSwinSemSeg(nn.Module):
                 qkv_bias=self.qkv_bias,
                 drop=self.drop_rate,
                 attn_drop=self.attn_drop_rate,
-                drop_path=dpr[sum(self.depths[:i]) : sum(self.depths[: i + 1])],
+                drop_path=dpr[sum(self.depths[:i]): sum(self.depths[: i + 1])],
                 norm_layer=self.norm_layer,
                 # downsample=PatchMerging if i < self.num_layers - 1 else None,
                 downsample=None,
@@ -248,6 +248,7 @@ class DualSwinSemSeg(nn.Module):
 
                 outs.append(out)
         return tuple(outs)
+
 
 class dual_swin_semseg_t(DualSwinSemSeg):
     def __init__(self, **kwargs):
@@ -326,4 +327,3 @@ if __name__ == "__main__":
     y = net(torch.ones(1, 3, 224, 224), torch.ones(1, 3, 224, 224))
     for out in y:
         print(f"Output shape = {out.shape}")
-    
