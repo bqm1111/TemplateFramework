@@ -10,7 +10,7 @@ from models.pos_embed import get_2d_sincos_pos_embed
 from models.net_utils import FeatureFusionModule as FFM
 from models.net_utils import FeatureRectifyModule as FRM
 from utils.logger import get_root_logger
-from utils.checkpoint import load_dual_branch_model_from_mae_pretrained
+from utils.checkpoint import load_dual_branch_model_from_mae_pretrained, load_swin_pretrained_model
 
 logger = get_root_logger()
 
@@ -36,7 +36,7 @@ class DualSwinSemSeg(nn.Module):
         norm_fuse=nn.BatchNorm2d,
         out_indices=(0, 1, 2, 3),
         frozen_stages=-1,
-        use_checkpoint=False,
+        from_mae=True,
         ape=False,
         norm_pix_loss=False,
         target_type: str = "origin",
@@ -67,6 +67,7 @@ class DualSwinSemSeg(nn.Module):
         self.target_type = target_type
         self.frozen_stages = frozen_stages
         self.ape = ape
+        self.from_mae = from_mae
 
         self.patch_embed = PatchEmbedding(
             patch_size=patch_size,
@@ -135,7 +136,10 @@ class DualSwinSemSeg(nn.Module):
 
         self.apply(self._init_weights)
         if isinstance(pretrained, str):
-            load_dual_branch_model_from_mae_pretrained(self, pretrained)
+            if self.from_mae:
+                load_dual_branch_model_from_mae_pretrained(self, pretrained)
+            else:
+                load_swin_pretrained_model(self, pretrained)
 
     @staticmethod
     def _init_weights(m):
@@ -269,7 +273,7 @@ class dual_swin_semseg_t(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            use_checkpoint=False,
+            from_mae=True,
             **kwargs,
         )
 
@@ -292,7 +296,6 @@ class dual_swin_semseg_s(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            use_checkpoint=False,
             **kwargs,
         )
 
@@ -315,7 +318,6 @@ class dual_swin_semseg_b(DualSwinSemSeg):
             norm_layer=nn.LayerNorm,
             patch_norm=True,
             out_indices=(0, 1, 2, 3),
-            use_checkpoint=False,
             **kwargs,
         )
 

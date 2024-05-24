@@ -43,7 +43,6 @@ class EncoderDecoder(nn.Module):
 
     def init_weights(self, pretrained=None):
         if pretrained:
-            logger.info("Loading pretrained model: {}".format(pretrained))
             self.backbone.init_weights(pretrained=pretrained)
         logger.info("Initing weights ...")
         init_weight(
