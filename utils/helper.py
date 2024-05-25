@@ -2,6 +2,7 @@ import time
 import numpy as np
 from PIL import Image
 import cv2
+import os
 
 
 class Timer():
@@ -56,17 +57,25 @@ def show_pil_image(window_name: str, img: Image):
     cv2_image = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
     cv2.imshow(window_name, cv2_image)
 
+
 def convert_depth_to_image(depth):
 
     max_depth = np.max(depth)
-    mask = np.where(depth==0, 0, 1)
+    mask = np.where(depth == 0, 0, 1)
     min_depth = np.min(depth[np.nonzero(depth)])
-    depth = ((depth - min_depth) / (max_depth - min_depth) * 255.0).astype(np.uint8)
+    depth = ((depth - min_depth) / (max_depth - min_depth)
+             * 255.0).astype(np.uint8)
     depth = (depth * mask).astype(np.uint8)
     depth = np.stack((depth,) * 3, axis=-1)
     return depth
 
+
+def link_file(src, target):
+    if os.path.isdir(target) or os.path.isfile(target):
+        os.system('rm -rf {}'.format(target))
+    os.system('ln -s {} {}'.format(src, target))
+
+
 if __name__ == '__main__':
     img = Image.open("data/NYUDepthv2/RGB/7.jpg").convert("RGB")
     show_pil_image("img", img)
-    

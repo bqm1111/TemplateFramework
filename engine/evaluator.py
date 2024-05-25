@@ -1,11 +1,8 @@
-import enum
 import os
 import cv2
-from matplotlib import axis
 import numpy as np
 from tqdm import tqdm
 from datasets import get_dataset
-from engine import get_model
 
 import torch
 from torch.utils.data import DataLoader
@@ -29,14 +26,18 @@ class Evaluator:
             val_dataset, batch_size=self.val_cfg.batch_size, shuffle=False)
         self.class_names = get_classname(self.val_cfg.dataset.name)
         self.num_classes = len(self.class_names)
-        self.val_logdir = self.val_cfg.log_dir
+        self.val_logdir = os.path.join(
+            self.val_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name)
 
-    def run(self, model_file):
+    def run(self, model_file=None):
         if not os.path.exists(self.val_logdir):
             os.makedirs(self.val_logdir)
         with open(os.path.join(self.val_logdir, "result.txt"), 'a') as f:
-            logger.info(f"Loading weight from {model_file}")
-            self.model.load_state_dict(torch.load(model_file)["model"])
+            if model_file is None:
+                logger.info(f"Evaluate while training")
+            else:
+                logger.info(f"Loading weight from {model_file}")
+                self.model.load_state_dict(torch.load(model_file)["model"])
             all_results = []
             for _, data in enumerate(tqdm(self.val_loader)):
                 label = data["label"].squeeze(1)
@@ -51,11 +52,12 @@ class Evaluator:
                 self.visualize(label, data, pred)
                 all_results.append(results_dict)
 
-            result_line = self.compute_metric(all_results)
-            f.write('Model: ' + self.cfg.model.name + '\n')
+            result_line, iou = self.compute_metric(all_results)
+            f.write('Model: ' + model_file + '\n')
             f.write(result_line)
             f.write('\n')
             f.flush()
+        return iou
 
     def compute_metric(self, results):
         hist = np.zeros((self.num_classes, self.num_classes))
@@ -78,7 +80,7 @@ class Evaluator:
             self.class_names,
             show_no_back=False,
         )
-        return result_line
+        return result_line, iou
 
     def visualize(self, label, data, pred):
         if self.val_cfg.save_path is not None:

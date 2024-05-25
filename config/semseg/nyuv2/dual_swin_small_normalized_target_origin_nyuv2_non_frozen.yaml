@@ -1,6 +1,6 @@
 experiment_type: "semseg"
 experiment_dataset: "nyuv2"
-experiment_name: "dual_swin_small_normalized_target_origin_non_frozen_ckpt_2200"
+experiment_name: "dual_swin_small_normalized_target_origin_non_frozen_ckpt_3600"
 # Model
 model:
   name: "encoder_decoder"
@@ -15,7 +15,7 @@ model:
         in_channels: [96, 192, 384, 768]
     aux_head: ~
     norm_layer: "BatchNorm2d"
-    pretrained: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin/checkpoint-2200.pth
+    pretrained: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin_ImageNet_swin_pretrained/checkpoint-3600.pth
     train_cfg:
       bn_eps: 1e-3
       bn_momentum: 0.1
@@ -138,4 +138,3 @@ val:
   
   test:
   need_test: False
-  # /

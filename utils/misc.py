@@ -371,7 +371,7 @@ def save_model(args, output_dir, epoch, model, model_without_ddp, optimizer, los
             }
             save_on_master(to_save, checkpoint_path)
 
-
+    return checkpoint_paths
 
 def load_model_to_resume(args, model_without_ddp, optimizer, loss_scaler):
     if args.resume:

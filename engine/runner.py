@@ -1,3 +1,4 @@
+from numpy import save
 from datasets import Iterator
 import torch
 import cv2
@@ -6,6 +7,7 @@ import os
 import torch.nn as nn
 from tqdm import tqdm
 
+from engine.evaluator import Evaluator
 from utils.helper import Timer, Average_Meter
 from torchvision.utils import save_image
 import timm
@@ -21,7 +23,7 @@ import json
 from utils.misc import NativeScalerWithGradNormCount as NativeScaler
 from utils.misc import all_reduce_tensor, all_reduce_mean
 from torch.utils.tensorboard import SummaryWriter
-
+from utils.helper import link_file
 logger = get_root_logger()
 
 
@@ -76,7 +78,7 @@ class BaseRunner():
             train_cfg.output_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-
+        best_iou = 0
         for epoch in range(start_epoch, train_cfg.num_epochs + 1):
             self.epoch = epoch
             if train_cfg.distributed:
@@ -85,9 +87,20 @@ class BaseRunner():
             self.train_one_epoch()
 
             if train_cfg.output_dir and (epoch % train_cfg.saving_interval == 0 or epoch == train_cfg.num_epochs) and epoch >= train_cfg.start_saving_epoch:
-                misc.save_model(
+                model_save_path = misc.save_model(
                     args=train_cfg, output_dir=output_dir, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
+                self.model.eval()
+                segmentor = Evaluator(self.cfg, self.model, show=False)
+                iou = segmentor.run()
+                if iou > best_iou:
+                    best_iou = iou
+                    save_path = model_save_path[0]
+                    best_path = os.path.join(
+                        os.path.dirname(save_path), "best_" + str(epoch) + ".pth")
+                    link_file(save_path, best_path)
+
+                self.model.train()
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
