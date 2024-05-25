@@ -29,11 +29,12 @@ class Evaluator:
         self.val_logdir = os.path.join(
             self.val_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name)
 
-    def run(self, model_file=None):
+    def run(self, model_file, need_load=True):
+        print(model_file)
         if not os.path.exists(self.val_logdir):
             os.makedirs(self.val_logdir)
         with open(os.path.join(self.val_logdir, "result.txt"), 'a') as f:
-            if model_file is None:
+            if not need_load:
                 logger.info(f"Evaluate while training")
             else:
                 logger.info(f"Loading weight from {model_file}")
@@ -52,12 +53,12 @@ class Evaluator:
                 self.visualize(label, data, pred)
                 all_results.append(results_dict)
 
-            result_line, iou = self.compute_metric(all_results)
-            f.write('Model: ' + model_file + '\n')
+            result_line, meanIoU = self.compute_metric(all_results)
+            f.write('Model: ' + str(model_file) + '\n')
             f.write(result_line)
             f.write('\n')
             f.flush()
-        return iou
+        return meanIoU
 
     def compute_metric(self, results):
         hist = np.zeros((self.num_classes, self.num_classes))
@@ -80,7 +81,7 @@ class Evaluator:
             self.class_names,
             show_no_back=False,
         )
-        return result_line, iou
+        return result_line, mean_IoU
 
     def visualize(self, label, data, pred):
         if self.val_cfg.save_path is not None:

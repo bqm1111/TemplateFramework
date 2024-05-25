@@ -3,6 +3,8 @@ import numpy as np
 from PIL import Image
 import cv2
 import os
+from utils.logger import get_root_logger
+logger = get_root_logger()
 
 
 class Timer():
@@ -71,7 +73,8 @@ def convert_depth_to_image(depth):
 
 
 def link_file(src, target):
-    if os.path.isdir(target) or os.path.isfile(target):
+    if os.path.islink(target):
+        logger.warning("Delete the previous best model file")
         os.system('rm -rf {}'.format(target))
     os.system('ln -s {} {}'.format(src, target))
 

@@ -91,13 +91,13 @@ class BaseRunner():
                     args=train_cfg, output_dir=output_dir, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
                 self.model.eval()
+                save_path = model_save_path[0]
                 segmentor = Evaluator(self.cfg, self.model, show=False)
-                iou = segmentor.run()
-                if iou > best_iou:
-                    best_iou = iou
-                    save_path = model_save_path[0]
+                meanIOU = segmentor.run(save_path, need_load=False)
+                if meanIOU > best_iou:
+                    best_iou = meanIOU
                     best_path = os.path.join(
-                        os.path.dirname(save_path), "best_" + str(epoch) + ".pth")
+                        os.path.dirname(save_path), "best" + ".pth")
                     link_file(save_path, best_path)
 
                 self.model.train()

@@ -111,6 +111,8 @@ val:
     params:
       root: "data/NYUDepthv2"
       split: "test"
+      need_label: True
+      need_depth_anything: False
     common_transforms: ~
     transforms:
       to_tensor:
