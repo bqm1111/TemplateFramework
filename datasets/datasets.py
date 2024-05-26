@@ -17,6 +17,7 @@ class DepthDataset(Dataset):
         split,
         need_label,
         need_depth_anything,
+        need_fill_invalid=False,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -38,6 +39,7 @@ class DepthDataset(Dataset):
             self.root_dir, "rawDepthAnything")
         self.need_label = need_label
         self.need_depth_anything = need_depth_anything
+        self.need_fill_invalid = need_fill_invalid
         all_index_file = os.path.join(self.root_dir, split + ".txt")
         if not os.path.exists(all_index_file):
             raise Exception(f"File does not exist {all_index_file}")
@@ -64,18 +66,28 @@ class DepthDataset(Dataset):
         elif self.dataset_name == "sunrgbd":
             depth = np.array(Image.open(os.path.join(
                 self.depth_path, file_index + ".png")))
+        if self.need_fill_invalid:
+            mask = np.where(depth == 0, 0, 1)
 
-        depth = convert_depth_to_image(depth)
-        depth = Image.fromarray(depth)
-        output["rgb"] = rgb
-        output["depth"] = depth
+
         if self.need_depth_anything:
             raw_depth_anything = np.load(os.path.join(
                 self.raw_depth_anything_path, file_index + ".npy"))
+            if self.need_fill_invalid:
+                invalid_filled_depth = depth + (1 - mask) * raw_depth_anything
+                invalid_filled_depth = convert_depth_to_image(invalid_filled_depth)
             raw_depth_anything = convert_depth_to_image(
                 raw_depth_anything)
             raw_depth_anything = Image.fromarray(raw_depth_anything)
             output["depth_anything"] = raw_depth_anything
+
+        depth = convert_depth_to_image(depth)
+        depth = Image.fromarray(depth)
+        output["rgb"] = rgb
+        if self.need_fill_invalid:
+            output["depth"] = invalid_filled_depth
+        else:
+            output["depth"] = depth
         if self.need_label:
             label = cv2.imread(os.path.join(
                 self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE)
@@ -113,6 +125,7 @@ class NYUv2Dataset(DepthDataset):
         split,
         need_label,
         need_depth_anything,
+        need_fill_invalid=False,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -124,6 +137,7 @@ class NYUv2Dataset(DepthDataset):
             split,
             need_label,
             need_depth_anything,
+            need_fill_invalid,
             transforms,
             target_transforms,
             depth_transforms,
@@ -140,6 +154,7 @@ class SunRGBDDataset(DepthDataset):
         split,
         need_label,
         need_depth_anything,
+        need_fill_invalid=False,
         transforms=None,
         target_transforms=None,
         depth_transforms=None,
@@ -151,6 +166,7 @@ class SunRGBDDataset(DepthDataset):
             split,
             need_label,
             need_depth_anything,
+            need_fill_invalid,
             transforms,
             target_transforms,
             depth_transforms,

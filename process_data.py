@@ -10,11 +10,11 @@ filename = "12.npy"
 raw_depth = np.load(os.path.join(raw_depth_path, filename))
 raw_depth_anything = np.load(os.path.join(raw_depthanything_path, filename))
 mask = np.where(raw_depth == 0, 0, 1)
+combine = raw_depth + (1 - mask) * raw_depth_anything
 # mask = np.stack((mask,) * 3, axis=-1)
 # cv2.imshow("before", mask.astype(np.uint8) * 255)
 # mask = cv2.blur(mask, (5, 5))
 # cv2.imshow("after", mask.astype(np.uint8) * 255)
-combine = raw_depth + (1 - mask) * raw_depth_anything
 
 raw_depth = convert_depth_to_image(raw_depth)
 raw_depth_anything = convert_depth_to_image(raw_depth_anything)

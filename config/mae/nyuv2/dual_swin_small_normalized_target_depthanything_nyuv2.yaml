@@ -8,6 +8,7 @@ model:
   params:
     norm_pix_loss: True
     target_type: "rawDepthAnything"
+    pretrained: pretrained/upernet_swin_small_patch4_window7_512x512.pth
 train:
   # Runner
   num_epochs: 4000
@@ -75,11 +76,11 @@ train:
     target_transforms:
       to_tensor:
         params: ~
-      normalize:
-        params:
-          # sunrgbd depth anything
-          mean: [0.5503, 0.5503, 0.5503]
-          std: [0.2272, 0.2272, 0.2272]
+      # normalize:
+      #   params:
+      #     # sunrgbd depth anything
+      #     mean: [0.5503, 0.5503, 0.5503]
+      #     std: [0.2272, 0.2272, 0.2272]
     label_transforms: ~
 
   # Losses

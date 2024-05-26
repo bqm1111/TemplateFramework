@@ -1,7 +1,6 @@
 experiment_type: "semseg"
 experiment_dataset: "nyuv2"
-experiment_name: "dual_swin_small_normalized_target_depthanything_nyuv2_non_frozen"
-
+experiment_name: "dual_swin_small_normalized_target_origin_non_frozen_ckpt_3600_combine_depth"
 # Model
 model:
   name: "encoder_decoder"
@@ -16,12 +15,13 @@ model:
         in_channels: [96, 192, 384, 768]
     aux_head: ~
     norm_layer: "BatchNorm2d"
-    pretrained: output_dir/mae/nyuv2/dual_swin_small_normalized_target_depthanything/checkpoint-2240.pth
+    pretrained: output_dir/mae/nyuv2/dual_swin_small_normalized_target_origin_ImageNet_swin_pretrained/checkpoint-3600.pth
     train_cfg:
       bn_eps: 1e-3
       bn_momentum: 0.1
 
 train:
+  experiment_name: "semseg"
   # Runner
   runner_name: semseg
   distributed: False
@@ -49,7 +49,9 @@ train:
       root: "data/NYUDepthv2"
       split: "train"
       need_label: True
-      need_depth_anything: False
+      need_depth_anything: True
+      need_fill_invalid: True
+
     common_transforms:
       semseg_transform:
         params:
@@ -113,6 +115,7 @@ val:
       split: "test"
       need_label: True
       need_depth_anything: False
+
     common_transforms: ~
     transforms:
       to_tensor:
@@ -131,9 +134,8 @@ val:
       #     mean: [0.3786, 0.3786, 0.3786]
       #     std: [0.3205, 0.3205, 0.3205]
 
-    target_transforms: ~
-    label_transforms: 
-      to_tensor:
-        params: ~
-test:
+    target_transforms: ~ 
+    label_transforms: ~
+  
+  test:
   need_test: False
