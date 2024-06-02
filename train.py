@@ -6,13 +6,14 @@ from losses import get_losses
 from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_runner
 from utils.init_func import group_weight
 from timm.optim import optim_factory
+import torch
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="Path to config file")
 
 if __name__ == "__main__":
     args = parser.parse_args()
     config = OmegaConf.load(args.config)
-
+    torch.autograd.set_detect_anomaly(True)
     train_cfg = config.train
     if "val" in config:
         val_cfg = config.val
@@ -79,3 +80,4 @@ if __name__ == "__main__":
     runner.train()
     if test_cfg is not None and test_cfg.need_test:
         runner.test()
+

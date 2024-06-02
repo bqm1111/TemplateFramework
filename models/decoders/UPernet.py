@@ -5,6 +5,7 @@ import torch
 from torch.nn.modules import module
 import torch.nn.functional as F
 
+
 class UPerHead(nn.Module):
     """Unified Perceptual Parsing for Scene Understanding.
     This head is the implementation of `UPerNet
@@ -27,9 +28,10 @@ class UPerHead(nn.Module):
             norm_layer=norm_layer,
             align_corners=align_corners)
         self.bottleneck = nn.Sequential(
-                nn.Conv2d(self.in_channels[-1] + len(pool_scales) * self.channels, self.channels, 3, padding=1),
-                norm_layer(self.channels),
-                nn.ReLU(inplace=True)
+            nn.Conv2d(self.in_channels[-1] + len(pool_scales)
+                      * self.channels, self.channels, 3, padding=1),
+            norm_layer(self.channels),
+            nn.ReLU(inplace=True)
         )
         # FPN Module
         self.lateral_convs = nn.ModuleList()
@@ -39,20 +41,21 @@ class UPerHead(nn.Module):
                 nn.Conv2d(in_channels, self.channels, 1),
                 norm_layer(self.channels),
                 nn.ReLU(inplace=False)
-                )
+            )
             fpn_conv = nn.Sequential(
                 nn.Conv2d(self.channels, self.channels, 3, padding=1),
                 norm_layer(self.channels),
                 nn.ReLU(inplace=False)
-                )
+            )
             self.lateral_convs.append(l_conv)
             self.fpn_convs.append(fpn_conv)
 
         self.fpn_bottleneck = nn.Sequential(
-                nn.Conv2d(len(self.in_channels) * self.channels, self.channels, 3, padding=1),
-                norm_layer(self.channels),
-                nn.ReLU(inplace=True)
-                )
+            nn.Conv2d(len(self.in_channels) * self.channels,
+                      self.channels, 3, padding=1),
+            norm_layer(self.channels),
+            nn.ReLU(inplace=True)
+        )
         self.conv_seg = nn.Conv2d(channels, num_classes, kernel_size=1)
 
     def psp_forward(self, inputs):
@@ -77,7 +80,7 @@ class UPerHead(nn.Module):
         used_backbone_levels = len(laterals)
         for i in range(used_backbone_levels - 1, 0, -1):
             prev_shape = laterals[i - 1].shape[2:]
-            laterals[i - 1] += F.interpolate(
+            laterals[i - 1] = laterals[i - 1] + F.interpolate(
                 laterals[i],
                 size=prev_shape,
                 mode='bilinear',
@@ -128,7 +131,7 @@ class PPM(nn.ModuleList):
                 nn.Sequential(
                     nn.AdaptiveAvgPool2d(pool_scale),
                     nn.Conv2d(self.in_channel, self.channels, 1),
-                    norm_layer(self.channels), 
+                    norm_layer(self.channels),
                     nn.ReLU(inplace=True)
                 ))
 
@@ -144,4 +147,4 @@ class PPM(nn.ModuleList):
                 align_corners=self.align_corners)
             ppm_outs.append(upsampled_ppm_out)
         return ppm_outs
-    # 
+    #

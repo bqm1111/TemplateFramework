@@ -67,3 +67,15 @@ def group_weight(module, norm_layer, lr):
     weight_group.append(dict(params=group_decay, lr=lr))
     weight_group.append(dict(params=group_no_decay, weight_decay=.0, lr=lr))
     return weight_group
+
+
+# def group_dat_weight(model, group_no_decay):
+#     weight_group = []
+#     group_decay = []
+#     group_no_decay = []
+#     for name, param in model.named_parameters():
+#         if any(group_no_decay) in name:
+#             group_no_decay.append(name)
+#         else:
+#             group_decay.append(name)
+            

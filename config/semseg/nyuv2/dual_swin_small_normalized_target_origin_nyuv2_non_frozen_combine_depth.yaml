@@ -27,7 +27,7 @@ train:
   distributed: False
   device: cuda
   resume: ~
-
+  
   # Train config
   batch_size: 4
   num_workers: 32

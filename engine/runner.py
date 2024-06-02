@@ -90,7 +90,7 @@ class BaseRunner():
                 model_save_path = misc.save_model(
                     args=train_cfg, output_dir=output_dir, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
-                if self.cfg.experiment_name == "semseg":
+                if self.cfg.experiment_type == "semseg":
                     self.model.eval()
                     save_path = model_save_path[0]
                     segmentor = Evaluator(self.cfg, self.model, show=False)
@@ -210,7 +210,6 @@ class SemSegRunner(BaseRunner):
             depth = samples["depth"].cuda(non_blocking=True)
             label = samples["label"].cuda(non_blocking=True)
 
-            aux_rate = 0.2
             loss = self.model(rgb, depth, label)
             if cfg.distributed:
                 reduce_loss = all_reduce_tensor(

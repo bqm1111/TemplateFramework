@@ -1,34 +1,26 @@
-from torchvision.transforms import ToTensor
-from torchvision import datasets
-from torch import nn
-import torch
-from omegaconf import OmegaConf
-
-from datasets.datasets import DepthDataset
-from torch.utils.data import DataLoader
 import os
 import cv2
-from losses import get_losses
+import argparse
 import numpy as np
-from copy import deepcopy
+
+from omegaconf import OmegaConf
+from engine.evaluator import Evaluator
 from utils.logger import get_root_logger
-import torch.nn as nn
-from timm.optim import optim_factory
-from models.segmentors import EncoderDecoder
+from torch.utils.data import DataLoader
 from engine import get_model
+
 logger = get_root_logger()
 
-
+parser = argparse.ArgumentParser()
+parser.add_argument("--config", default="config/semseg/nyuv2/dual_dat_small_uper.yaml")
+parser.add_argument("--show", action='store_true')
+parser.add_argument("--epoch", type=int, default=300)
 if __name__ == '__main__':
-    # img = cv2.imread("/home/sherlock/Pictures/segmentation/sunrgbd/sunrgbd_trainval/seglabel/000009.png", cv2.IMREAD_GRAYSCALE)
-    # print(np.min(img))
-    # cv2.imshow("img", img)
-    # cv2.waitKey()
-    config = OmegaConf.load(
-        "config/semseg/nyuv2/dual_swin_small_normalized_target_origin_nyuv2_frozen_0.yaml")
-    net = get_model(config.model.name, eval=True, **config.model.params)
-    h = 480
-    w = 640
-    y = net(torch.ones(1, 3, h, w).float(), torch.ones(
-        1, 3, h, w).float(), torch.randint(0, 40, (1, h, w)).long())
-    print(y.shape)
+    args = parser.parse_args()
+    config = OmegaConf.load(args.config)
+    model = get_model(config.model.name, eval=True, **config.model.params)
+    checkpoint_path = os.path.join("output_dir/", config.experiment_type, config.experiment_dataset,
+                                   config.experiment_name, "checkpoint-" + str(args.epoch) + ".pth")
+    segmentor = Evaluator(config, model, args.show)
+    segmentor.run_once(checkpoint_path)
+    

@@ -121,16 +121,16 @@ val:
       normalize:
         params:
           # nyuv2
-          mean: [0.4949, 0.4267, 0.4039]
-          std: [0.2898, 0.2955, 0.3072]
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
     depth_transforms:
       to_tensor:
         params: ~
-      normalize:
-        params:
-          # nyuv2 depth
-          mean: [0.3880, 0.3880, 0.3880]
-          std: [0.3248, 0.3248, 0.3248]
+      # normalize:
+      #   params:
+      #     # nyuv2 depth
+      #     mean: [0.3786, 0.3786, 0.3786]
+      #     std: [0.3205, 0.3205, 0.3205]
 
     target_transforms: ~
     label_transforms: 

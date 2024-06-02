@@ -1,3 +1,4 @@
+import time
 import os
 import cv2
 import numpy as np
@@ -29,8 +30,23 @@ class Evaluator:
         self.val_logdir = os.path.join(
             self.val_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name)
 
+    def run_once(self, model_file, img_index=0,  need_load=True):
+        if not os.path.exists(self.val_logdir):
+            os.makedirs(self.val_logdir)
+        with open(os.path.join(self.val_logdir, "result.txt"), 'a') as f:
+            if not need_load:
+                logger.info(f"Evaluate while training")
+            else:
+                logger.info(f"Loading weight from {model_file}")
+                self.model.load_state_dict(torch.load(model_file)["model"])
+        for i, data in enumerate(self.val_loader):
+            if i == img_index:
+                label = data["label"].squeeze(1)
+                pred = self.eval(data)
+                self.visualize(label, data, pred)
+                break
+
     def run(self, model_file, need_load=True):
-        print(model_file)
         if not os.path.exists(self.val_logdir):
             os.makedirs(self.val_logdir)
         with open(os.path.join(self.val_logdir, "result.txt"), 'a') as f:
@@ -42,7 +58,10 @@ class Evaluator:
             all_results = []
             for _, data in enumerate(tqdm(self.val_loader)):
                 label = data["label"].squeeze(1)
+                start = time.time()
                 pred = self.eval(data)
+                end = time.time()
+                logger.info(f"Eval time = {(end - start) * 1000}")
                 hist_tmp, labeled_tmp, correct_tmp = hist_info(
                     self.num_classes, np.array(pred.cpu()), np.array(label.cpu()))
                 results_dict = {
@@ -105,12 +124,22 @@ class Evaluator:
             logger.info("Save the image " + fn)
 
         if self.show_image:
+            NORM_RGB = {
+                "mean": np.array([0.485, 0.456, 0.406]),
+                "std": np.array([0.229, 0.224, 0.225]),
+            }
             colors = np.array(get_class_colors(self.num_classes))
             pred_arr = pred.squeeze(0).cpu().numpy().astype(np.uint8)
-            img = np.zeros_like(pred_arr)
-            img = np.stack((img,)*3, axis=-1)
-            img[:] = colors[pred_arr[:]]
-            cv2.imshow("pred", img)
+            rgb_arr = data["rgb"].squeeze(0).cpu().numpy()
+            colored_pred = np.zeros_like(pred_arr)
+            colored_pred = np.stack((colored_pred,)*3, axis=-1)
+            colored_pred[:] = colors[pred_arr[:]]            
+            rgb_arr = rgb_arr.transpose(1, 2, 0)
+            rgb_arr = ((rgb_arr * NORM_RGB["std"] + NORM_RGB["mean"]) * 255).astype(np.uint8)
+            rgb_arr =cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+            dst = cv2.addWeighted(rgb_arr, 0.5, colored_pred, 0.5, 0.0)
+            output = np.concatenate([dst, rgb_arr, colored_pred], axis=1)
+            cv2.imshow("pred", output)
 
             if cv2.waitKey() == ord('q'):
                 exit(0)
