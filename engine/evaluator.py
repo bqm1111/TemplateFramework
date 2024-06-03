@@ -42,8 +42,9 @@ class Evaluator:
         for i, data in enumerate(self.val_loader):
             if i == img_index:
                 label = data["label"].squeeze(1)
-                pred = self.eval(data)
-                self.visualize(label, data, pred)
+                pred, pos = self.eval(data)
+                print(f"pos now shape = {pos[0][0].shape}")
+                self.visualize(label, data, pred, pos)
                 break
 
     def run(self, model_file, need_load=True):
@@ -102,7 +103,10 @@ class Evaluator:
         )
         return result_line, mean_IoU
 
-    def visualize(self, label, data, pred):
+    def convert_back_to_point(self, x, w, h):
+        return [int((x[1] + 1) * w/2), int((x[0] + 1) * h / 2)]
+
+    def visualize(self, label, data, pred, pos):
         if self.val_cfg.save_path is not None:
             if not os.path.exists(self.val_cfg.save_path):
                 os.makedirs(self.val_cfg.save_path)
@@ -131,15 +135,29 @@ class Evaluator:
             colors = np.array(get_class_colors(self.num_classes))
             pred_arr = pred.squeeze(0).cpu().numpy().astype(np.uint8)
             rgb_arr = data["rgb"].squeeze(0).cpu().numpy()
+            depth_arr = data["depth"].squeeze(0).cpu().numpy() * 255
+            depth_arr = depth_arr.transpose(1, 2, 0).astype(np.uint8)
+            depth_arr = cv2.cvtColor(depth_arr, cv2.COLOR_RGB2BGR)
+            for p in pos:
+                print(p.shape)
+            grid = np.array(pos[3][4].cpu())
+            grid = grid.reshape(300, 2)
+            for g in grid:
+                point = self.convert_back_to_point(g, 640, 480)
+                depth_arr = cv2.circle(depth_arr, point, 4, color=(0, 0, 255))
+
             colored_pred = np.zeros_like(pred_arr)
             colored_pred = np.stack((colored_pred,)*3, axis=-1)
-            colored_pred[:] = colors[pred_arr[:]]            
+            colored_pred[:] = colors[pred_arr[:]]
             rgb_arr = rgb_arr.transpose(1, 2, 0)
-            rgb_arr = ((rgb_arr * NORM_RGB["std"] + NORM_RGB["mean"]) * 255).astype(np.uint8)
-            rgb_arr =cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+            rgb_arr = (
+                (rgb_arr * NORM_RGB["std"] + NORM_RGB["mean"]) * 255).astype(np.uint8)
+            rgb_arr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
             dst = cv2.addWeighted(rgb_arr, 0.5, colored_pred, 0.5, 0.0)
             output = np.concatenate([dst, rgb_arr, colored_pred], axis=1)
-            cv2.imshow("pred", output)
+
+            # cv2.imshow("pred", output)
+            cv2.imshow("img", depth_arr)
 
             if cv2.waitKey() == ord('q'):
                 exit(0)
@@ -150,6 +168,6 @@ class Evaluator:
             data[key] = value.cuda()
         self.model = self.model.cuda()
         with torch.no_grad():
-            score = self.model(data["rgb"], data["depth"])
+            score, pos = self.model(data["rgb"], data["depth"])
         pred = score.argmax(1)
-        return pred
+        return pred, pos

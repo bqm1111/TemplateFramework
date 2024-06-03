@@ -172,6 +172,7 @@ class TransformerStage(nn.Module):
                 x = self.attns[d](x.contiguous())
                 x = self.mlps[d](self.ln_cnvnxt[str(d)](x))
                 x = self.drop_path[d](x) + x0
+                pos, ref = None, None
             else:
                 x0 = x
                 x, pos, ref = self.attns[d](self.layer_norms[2 * d](x))
@@ -182,7 +183,7 @@ class TransformerStage(nn.Module):
                 x = self.layer_scales[2 * d + 1](x)
                 x = self.drop_path[d](x) + x0
 
-        return x
+        return x, pos, ref
 
     def forward(self, x):
         if self.training and x.requires_grad and self.use_checkpoint:
@@ -384,7 +385,7 @@ class Dual_DAT(nn.Module):
             if isinstance(m, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(m.weight)
                 nn.init.zeros_(m.bias)
-    
+
     def init_weights(self, pretrained):
         def _init_weights(m):
             if isinstance(m, nn.Linear):
@@ -407,9 +408,12 @@ class Dual_DAT(nn.Module):
         x_d = self.patch_proj_d(x_d)
 
         outs = []
+        pos_out = []
         for i in range(4):
-            x = self.stages[i](x)
-            x_d = self.stages_d[i](x_d)
+            x, _, _ = self.stages[i](x)
+            x_d, pos, ref = self.stages_d[i](x_d)
+            if pos is not None:
+                pos_out.append(pos)
             x, x_d = self.FRMs[i](x.contiguous(), x_d.contiguous())
             y = self.norms[i](x)
             y_d = self.norms_d[i](x_d)
@@ -419,7 +423,7 @@ class Dual_DAT(nn.Module):
                 x = self.down_projs[i](x)
                 x_d = self.down_projs_d[i](x_d)
 
-        return outs
+        return outs, pos_out
 
 
 if __name__ == '__main__':
