@@ -7,47 +7,47 @@ from engine import get_model, get_opt_params, get_optimizer, get_scheduler, get_
 from utils.init_func import group_weight
 from timm.optim import optim_factory
 import torch
+import utils.misc as misc
+import os
+import torch.distributed as dist
+from torch.utils.data.distributed import DistributedSampler
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--config", help="Path to config file")
 
-if __name__ == "__main__":
-    args = parser.parse_args()
-    config = OmegaConf.load(args.config)
-    torch.autograd.set_detect_anomaly(True)
+
+def init_distributed_process(rank, size, backend='nccl'):
+    os.environ['MASTER_ADDR'] = '127.0.0.1'
+    os.environ['MASTER_PORT'] = '29500'
+    dist.init_process_group(backend=backend, rank=rank, world_size=size)
+
+
+def main(rank, world_size, config):
     train_cfg = config.train
-    if "val" in config:
-        val_cfg = config.val
-    else:
-        val_cfg = None
-    if "test" in config:
-        test_cfg = config.test
-    else:
-        test_cfg = None
-
     train_dataset = get_dataset(train_cfg.dataset)
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=train_cfg.batch_size,
-        shuffle=True,
-        num_workers=train_cfg.num_workers,
-        drop_last=train_cfg.drop_last,
-    )
-    # if val_cfg is not None:
-    #     val_dataset = get_dataset(val_cfg.dataset)
-    # else:
-    #     val_dataset = None
 
-    # if val_dataset is not None:
-    #     val_loader = DataLoader(
-    #         val_dataset,
-    #         batch_size=val_cfg.batch_size,
-    #         shuffle=False,
-    #         num_workers=val_cfg.num_workers,
-    #         drop_last=val_cfg.drop_last,
-    #     )
-    # else:
-    #     val_loader = None
-    val_loader = None
+    if train_cfg.distributed:
+        init_distributed_process(rank, world_size)
+        sampler_train = DistributedSampler(train_dataset)
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=train_cfg.batch_size,
+            shuffle=False,
+            sampler=sampler_train,
+            num_workers=train_cfg.num_workers,
+            drop_last=train_cfg.drop_last,
+        )
+        train_cfg.gpu = rank
+        torch.cuda.set_device(rank)
+
+    else:
+        train_loader = DataLoader(
+            train_dataset,
+            batch_size=train_cfg.batch_size,
+            shuffle=True,
+            num_workers=train_cfg.num_workers,
+            drop_last=train_cfg.drop_last,
+        )
     losses = get_losses(losses=train_cfg.losses)
 
     # according the model name to get the adapted model
@@ -74,10 +74,20 @@ if __name__ == "__main__":
     )
 
     runner = get_runner(config.experiment_type)(config, model, optimizer,
-                                                losses, scheduler, train_loader, val_loader)
+                                                losses, scheduler, train_loader, val_loader=None)
 
     # train_step
     runner.train()
-    if test_cfg is not None and test_cfg.need_test:
-        runner.test()
 
+
+if __name__ == "__main__":
+    import torch.multiprocessing as mp
+    args = parser.parse_args()
+    torch.manual_seed(1234)
+    config = OmegaConf.load(args.config)
+    world_size = torch.cuda.device_count()
+
+    if config.train.distributed:
+        mp.spawn(main, args=(world_size, config), nprocs=world_size)
+    else:
+        main(rank=0, world_size=1, config=config)

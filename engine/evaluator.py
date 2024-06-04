@@ -61,7 +61,7 @@ class Evaluator:
                 start = time.time()
                 pred = self.eval(data)
                 end = time.time()
-                logger.info(f"Eval time = {(end - start) * 1000}")
+                # logger.info(f"Eval time = {(end - start) * 1000}")
                 hist_tmp, labeled_tmp, correct_tmp = hist_info(
                     self.num_classes, np.array(pred.cpu()), np.array(label.cpu()))
                 results_dict = {
@@ -112,7 +112,7 @@ class Evaluator:
 
             # save colored result
             result_img = Image.fromarray(pred.astype(np.uint8), mode="P")
-            class_colors = get_class_colors(self.num_classes)
+            class_colors = get_class_colors(self.num_classes + 1)
             palette_list = list(np.array(class_colors).flat)
             if len(palette_list) < 768:
                 palette_list += [0] * (768 - len(palette_list))
@@ -131,14 +131,23 @@ class Evaluator:
             colors = np.array(get_class_colors(self.num_classes))
             pred_arr = pred.squeeze(0).cpu().numpy().astype(np.uint8)
             rgb_arr = data["rgb"].squeeze(0).cpu().numpy()
+            label_arr = label.squeeze(0).cpu().numpy().astype(np.uint8)
+            label_arr[label_arr == 255] = 40
+            colored_label = np.zeros_like(label_arr)
+            colored_label = np.stack((colored_label,)*3, axis=-1)
+            colored_label[:] = colors[label_arr[:]]
             colored_pred = np.zeros_like(pred_arr)
             colored_pred = np.stack((colored_pred,)*3, axis=-1)
-            colored_pred[:] = colors[pred_arr[:]]            
+            colored_pred[:] = colors[pred_arr[:]]
             rgb_arr = rgb_arr.transpose(1, 2, 0)
-            rgb_arr = ((rgb_arr * NORM_RGB["std"] + NORM_RGB["mean"]) * 255).astype(np.uint8)
-            rgb_arr =cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
+            rgb_arr = (
+                (rgb_arr * NORM_RGB["std"] + NORM_RGB["mean"]) * 255).astype(np.uint8)
+            rgb_arr = cv2.cvtColor(rgb_arr, cv2.COLOR_RGB2BGR)
             dst = cv2.addWeighted(rgb_arr, 0.5, colored_pred, 0.5, 0.0)
-            output = np.concatenate([dst, rgb_arr, colored_pred], axis=1)
+            tmp1 = np.concatenate([dst, rgb_arr], axis=1)
+            tmp2 = np.concatenate([colored_pred, colored_label], axis=1)
+            output = np.concatenate([tmp1, tmp2], axis=0)
+
             cv2.imshow("pred", output)
 
             if cv2.waitKey() == ord('q'):

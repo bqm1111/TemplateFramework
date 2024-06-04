@@ -442,7 +442,6 @@ class DAttentionBaseline(nn.Module):
                                 self.n_group_channels, H, W),
                 grid=pos[..., (1, 0)],  # y, x -> x, y
                 mode='bilinear', align_corners=True)  # B * g, Cg, Hg, Wg
-        print(pos.shape, x_sampled.shape)
 
         x_sampled = x_sampled.reshape(B, C, 1, n_sample)
 
