@@ -4,9 +4,10 @@ from omegaconf.dictconfig import DictConfig
 from .datasets import NYUv2Dataset, SunRGBDDataset
 from utils.logger import get_root_logger
 import torchvision.transforms as T
-from .class_names import nyuv2_classname
+from .class_names import nyuv2_classname, sunrgbd_classname
 ALL_CLASS_NAMES = {
-    'nyuv2': nyuv2_classname
+    'nyuv2': nyuv2_classname,
+    'sunrgbd': sunrgbd_classname
 }
 
 

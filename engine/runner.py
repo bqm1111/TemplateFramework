@@ -60,7 +60,10 @@ class BaseRunner():
         if train_cfg.log_dir is not None:
             self.log_writer = SummaryWriter(log_dir=os.path.join(
                 train_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name))
-        self.model.to(train_cfg.gpu)
+        if "gpu" in train_cfg:
+            self.model.to(train_cfg.gpu)
+        else:
+            self.model.to(self.device)
         self.model_without_ddp = self.model
         if train_cfg.distributed:
             self.model = torch.nn.parallel.DistributedDataParallel(
@@ -92,18 +95,19 @@ class BaseRunner():
                     args=train_cfg, output_dir=output_dir, model=self.model, model_without_ddp=self.model_without_ddp, optimizer=self.optimizer,
                     loss_scaler=self.loss_scaler, epoch=epoch)
                 # if self.cfg.experiment_type == "semseg":
-                #     self.model.eval()
-                #     save_path = model_save_path[0]
-                #     segmentor = Evaluator(
-                #         self.cfg, self.model_without_ddp, show=False)
-                #     meanIOU = segmentor.run(save_path, need_load=False)
-                #     if meanIOU > best_iou:
-                #         best_iou = meanIOU
-                #         best_path = os.path.join(
-                #             os.path.dirname(save_path), "best" + ".pth")
-                #         link_file(save_path, best_path)
+                #     if misc.is_main_process():
+                #         self.model.eval()
+                #         save_path = model_save_path[0]
+                #         segmentor = Evaluator(
+                #             self.cfg, self.model_without_ddp, show=False)
+                #         meanIOU = segmentor.run(save_path, need_load=False)
+                #         if meanIOU > best_iou:
+                #             best_iou = meanIOU
+                #             best_path = os.path.join(
+                #                 os.path.dirname(save_path), "best" + ".pth")
+                #             link_file(save_path, best_path)
 
-                #     self.model.train()
+                #         self.model.train()
 
         total_time = time.time() - start_time
         total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -207,9 +211,15 @@ class SemSegRunner(BaseRunner):
         cfg = self.train_cfg
         sum_loss = 0
         for data_iter_step, samples in enumerate(self.train_loader):
-            rgb = samples["rgb"].to(cfg.gpu)
-            depth = samples["depth"].to(cfg.gpu)
-            label = samples["label"].to(cfg.gpu)
+            if "gpu" in cfg:
+                rgb = samples["rgb"].to(cfg.gpu)
+                depth = samples["depth"].to(cfg.gpu)
+                label = samples["label"].to(cfg.gpu)
+            else:
+                rgb = samples["rgb"].to(cfg.device)
+                depth = samples["depth"].to(cfg.device)
+                label = samples["label"].to(cfg.device)
+
 
             loss = self.model(rgb, depth, label)
             if cfg.distributed:
@@ -243,7 +253,9 @@ class SemSegRunner(BaseRunner):
 
             del loss
             logger.info(print_str)
+
         if (cfg.distributed and (misc.is_main_process())) or (not cfg.distributed):
             self.log_writer.add_scalar(
                 'train_loss', sum_loss / len(self.train_loader), self.epoch)
             self.log_writer.add_scalar('lr', lr, self.epoch)
+        

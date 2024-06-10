@@ -40,11 +40,9 @@ class Evaluator:
                 logger.info(f"Loading weight from {model_file}")
                 self.model.load_state_dict(torch.load(model_file)["model"])
         for i, data in enumerate(self.val_loader):
-            if i == img_index:
-                label = data["label"].squeeze(1)
-                pred = self.eval(data)
-                self.visualize(label, data, pred)
-                break
+            label = data["label"].squeeze(1)
+            pred = self.eval(data)
+            self.visualize(label, data, pred)
 
     def run(self, model_file, need_load=True):
         if not os.path.exists(self.val_logdir):
@@ -128,11 +126,11 @@ class Evaluator:
                 "mean": np.array([0.485, 0.456, 0.406]),
                 "std": np.array([0.229, 0.224, 0.225]),
             }
-            colors = np.array(get_class_colors(self.num_classes))
+            colors = np.array(get_class_colors(self.num_classes + 1))
             pred_arr = pred.squeeze(0).cpu().numpy().astype(np.uint8)
             rgb_arr = data["rgb"].squeeze(0).cpu().numpy()
             label_arr = label.squeeze(0).cpu().numpy().astype(np.uint8)
-            label_arr[label_arr == 255] = 40
+            label_arr[label_arr == 255] = self.num_classes
             colored_label = np.zeros_like(label_arr)
             colored_label = np.stack((colored_label,)*3, axis=-1)
             colored_label[:] = colors[label_arr[:]]

@@ -13,7 +13,7 @@ from models.net_utils import FeatureRectifyModule as FRM
 from utils.checkpoint import load_dat_pretrained_model
 
 import torch.utils.checkpoint as cp
-
+logger = get_root_logger()
 
 class LayerScale(nn.Module):
     def __init__(self, dim, init_values=1e-5):
@@ -28,7 +28,6 @@ class LayerScale(nn.Module):
 
 
 class TransformerStage(nn.Module):
-
     def __init__(self, fmap_size, window_size, ns_per_pt,
                  dim_in, dim_embed, depths, stage_spec, n_groups,
                  use_pe, sr_ratio,
@@ -397,12 +396,10 @@ class Dual_DAT(nn.Module):
         self.apply(_init_weights)
 
         if isinstance(pretrained, str):
-            logger = get_root_logger()
             load_dat_pretrained_model(self, pretrained)
-            logger.info("DAT bakcbone has been loaded successfully!")
+            logger.info("DAT backbone has been loaded successfully!")
 
     def forward(self, x, x_d):
-
         x = self.patch_proj(x)
         x_d = self.patch_proj_d(x_d)
 
