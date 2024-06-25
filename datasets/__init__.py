@@ -28,6 +28,7 @@ ALL_CUSTOM_TRANSFORM = {
     "random_resized_crop": RandomResizedCrop,
     "semseg_transform": TrainPre
 }
+
 ALL_DATASETS = {
     "nyuv2": NYUv2Dataset,
     "sunrgbd": SunRGBDDataset,
