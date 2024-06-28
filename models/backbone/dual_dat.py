@@ -5,7 +5,7 @@ from utils.logger import get_root_logger
 from models.dat_utils.dat_blocks import *
 from models.net_utils import FeatureFusionModule as FFM
 from models.net_utils import FeatureRectifyModule as FRM
-from utils.checkpoint import load_dat_pretrained_model
+from utils.checkpoint import load_dual_dat_pretrained_model
 from models.backbone.dat import LayerNormProxy, TransformerStage
 logger = get_root_logger()
 
@@ -216,7 +216,7 @@ class Dual_DAT(nn.Module):
         self.apply(_init_weights)
 
         if isinstance(pretrained, str):
-            load_dat_pretrained_model(self, pretrained)
+            load_dual_dat_pretrained_model(self, pretrained)
             logger.info("DAT backbone has been loaded successfully!")
 
     def forward(self, x, x_d):

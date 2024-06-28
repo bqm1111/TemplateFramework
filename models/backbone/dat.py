@@ -10,7 +10,7 @@ from models.dat_utils.nat import NeighborhoodAttention2D
 from models.dat_utils.slide import SlideAttention
 from models.net_utils import FeatureFusionModule as FFM
 from models.net_utils import FeatureRectifyModule as FRM
-from utils.checkpoint import load_dat_pretrained_model
+from utils.checkpoint import load_dual_dat_pretrained_model
 
 import torch.utils.checkpoint as cp
 logger = get_root_logger()

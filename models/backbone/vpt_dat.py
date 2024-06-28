@@ -1,3 +1,4 @@
+from unittest.util import strclass
 import torch
 import torch.nn as nn
 
@@ -92,7 +93,7 @@ class VPT_DAT(nn.Module):
             pt_config["reduction_ratio"] = 32
         else:
             pt_config = None
-            
+
         for i in range(4):
             dim1 = dim_stem if i == 0 else dims[i - 1] * 2
             dim2 = dims[i]
@@ -129,7 +130,7 @@ class VPT_DAT(nn.Module):
             img_size = img_size // 2
 
         self.down_projs = nn.ModuleList()
-        self.MPGs = self.build_MPG()
+        self.mpg = self.build_MPG()
 
         for i in range(3):
             self.down_projs.append(
@@ -155,7 +156,6 @@ class VPT_DAT(nn.Module):
         return layers
 
     def reset_parameters(self):
-
         for m in self.parameters():
             if isinstance(m, (nn.Linear, nn.Conv2d)):
                 nn.init.kaiming_normal_(m.weight)
@@ -175,6 +175,11 @@ class VPT_DAT(nn.Module):
         if isinstance(pretrained, str):
             load_dat_pretrained_model(self, pretrained)
             logger.info("DAT backbone has been loaded successfully!")
+        for name, param in self.named_parameters():
+            if "mfa" in name or "mpg" in name:
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
 
     def build_MPG(self):
         layers = nn.ModuleList()
@@ -195,7 +200,7 @@ class VPT_DAT(nn.Module):
 
         outs = []
         for i in range(4):
-            x, x_d = self.MPGs[i](x, x_d)
+            x, x_d = self.mpg[i](x, x_d)
 
             x = self.stages[i](x)
             y = self.norms[i](x)
@@ -209,5 +214,12 @@ class VPT_DAT(nn.Module):
 if __name__ == '__main__':
     net = VPT_DAT(prompt_tuning_config=True)
     model_file = "pretrained/upn_dat_s_160k.pth"
-    load_dat_pretrained_model(net, model_file)
-    y = net(torch.ones(1, 3, 480, 640), torch.ones(1, 3, 480, 640))
+    state_dict = torch.load(model_file)["state_dict"]
+    net.init_weights(None)
+    for name, param in net.named_parameters():
+        if param.requires_grad is True:
+            print(name)
+    # load_dat_pretrained_model(net, model_file)
+    # for _, name in net.parameters():
+    #     print(param)
+    # y = net(torch.ones(1, 3, 480, 640), torch.ones(1, 3, 480, 640))

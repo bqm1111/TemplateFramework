@@ -205,7 +205,7 @@ def load_swin_pretrained_model(model, model_file):
 
     return model
 
-def load_dat_pretrained_model(model, model_file):
+def load_dual_dat_pretrained_model(model, model_file):
     logger.info(f"Loading pretrained from {model_file}")
     pretrained = torch.load(model_file)
     state_dict = {}
@@ -218,6 +218,19 @@ def load_dat_pretrained_model(model, model_file):
             depth_key = depth_key + new_key[len(prefix_depth):]
             state_dict[new_key] = value
             state_dict[depth_key] = value
+
+    model.load_state_dict(state_dict, strict=True)
+    del state_dict
+    logger.info("Successfully load DAT++ pretrained model")
+
+def load_dat_pretrained_model(model, model_file):
+    logger.info(f"Loading pretrained from {model_file}")
+    pretrained = torch.load(model_file)
+    state_dict = {}
+    for key, value in pretrained["state_dict"].items():
+        if "backbone." in key:
+            new_key = key[9:]
+            state_dict[new_key] = value
 
     model.load_state_dict(state_dict, strict=False)
     del state_dict
