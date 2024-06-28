@@ -5,6 +5,9 @@ from utils.logger import get_root_logger
 from models.dat_utils.dat_blocks import *
 from utils.checkpoint import load_dat_pretrained_model
 from models.backbone.dat import LayerNormProxy, TransformerStage
+from models.net_utils import FeatureRectifyModule as FRM
+from models.net_utils import MFA
+from models.net_utils import MPG
 logger = get_root_logger()
 
 
@@ -48,6 +51,7 @@ class VPT_DAT(nn.Module):
                  out_indices=(0, 1, 2, 3),
                  use_checkpoint=True,
                  pretrained=None,
+                 prompt_tuning_config=False,
                  **kwargs
                  ):
         super().__init__()
@@ -66,12 +70,29 @@ class VPT_DAT(nn.Module):
             LayerNormProxy(dim_stem)
         ) if use_conv_patches else nn.Sequential(nn.Conv2d(3, dim_stem, patch_size, patch_size, 0),
                                                  LayerNormProxy(dim_stem))
+        self.patch_proj_d = nn.Sequential(
+            nn.Conv2d(3, dim_stem // 2, 3, patch_size // 2, 1),
+            LayerNormProxy(dim_stem // 2),
+            nn.GELU(),
+            nn.Conv2d(dim_stem // 2, dim_stem, 3, patch_size // 2, 1),
+            LayerNormProxy(dim_stem)
+        ) if use_conv_patches else nn.Sequential(nn.Conv2d(3, dim_stem, patch_size, patch_size, 0),
+                                                 LayerNormProxy(dim_stem))
+
         img_size = img_size // patch_size
         dpr = [x.item() for x in torch.linspace(
             0, drop_path_rate, sum(depths))]
 
         self.stages = nn.ModuleList()
         self.norms = nn.ModuleList()
+        if prompt_tuning_config:
+            pt_config = {}
+            pt_config["num_token"] = 32
+            pt_config["token_dim"] = 30
+            pt_config["reduction_ratio"] = 32
+        else:
+            pt_config = None
+            
         for i in range(4):
             dim1 = dim_stem if i == 0 else dims[i - 1] * 2
             dim2 = dims[i]
@@ -96,7 +117,7 @@ class VPT_DAT(nn.Module):
                     use_lpus[i],
                     use_cmt_mlps[i],
                     log_cpb[i],
-                    i, use_checkpoint
+                    i, use_checkpoint, prompt_tuning_config=pt_config
                 )
             )
             if i in self.out_indices:
@@ -108,6 +129,8 @@ class VPT_DAT(nn.Module):
             img_size = img_size // 2
 
         self.down_projs = nn.ModuleList()
+        self.MPGs = self.build_MPG()
+
         for i in range(3):
             self.down_projs.append(
                 nn.Sequential(
@@ -122,6 +145,14 @@ class VPT_DAT(nn.Module):
         self.lower_lr_kvs = lower_lr_kvs
         self.pretrained = pretrained
         self.reset_parameters()
+
+    def build_FRM(self):
+        layers = nn.ModuleList()
+        for i in range(4):
+            layer = FRM(self.dims[i], reduction=1)
+            layers.append(layer)
+
+        return layers
 
     def reset_parameters(self):
 
@@ -145,11 +176,27 @@ class VPT_DAT(nn.Module):
             load_dat_pretrained_model(self, pretrained)
             logger.info("DAT backbone has been loaded successfully!")
 
+    def build_MPG(self):
+        layers = nn.ModuleList()
+        for i in range(4):
+            if i == 0:
+                layer = MPG(self.dims[i], self.dims[i],
+                            None, None, None, 1, False)
+            else:
+                layer = MPG(self.dims[i-1], self.dims[i],
+                            kernel_size=3, stride=2, padding=1)
+            layers.append(layer)
+
+        return layers
+
     def forward(self, x, x_d):
         x = self.patch_proj(x)
+        x_d = self.patch_proj_d(x_d)
 
         outs = []
         for i in range(4):
+            x, x_d = self.MPGs[i](x, x_d)
+
             x = self.stages[i](x)
             y = self.norms[i](x)
             outs.append(y.contiguous())
@@ -157,3 +204,10 @@ class VPT_DAT(nn.Module):
                 x = self.down_projs[i](x)
 
         return outs
+
+
+if __name__ == '__main__':
+    net = VPT_DAT(prompt_tuning_config=True)
+    model_file = "pretrained/upn_dat_s_160k.pth"
+    load_dat_pretrained_model(net, model_file)
+    y = net(torch.ones(1, 3, 480, 640), torch.ones(1, 3, 480, 640))

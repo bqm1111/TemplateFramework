@@ -6,6 +6,7 @@ from models.vanilla_mae import (
     mae_vit_large_patch16,
 )
 from models.segmentors import EncoderDecoder
+from models.backbone.vpt_dat import VPT_DAT
 from models.backbone.swin_mae import swin_mae
 from models.backbone.dual_swin_mae import (
     dual_swinmae_t,

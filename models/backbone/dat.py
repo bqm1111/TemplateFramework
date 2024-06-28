@@ -41,7 +41,7 @@ class TransformerStage(nn.Module):
                  layer_scale_value,
                  use_lpu, use_cmt_mlp, log_cpb,
                  stage_i,
-                 use_checkpoint):
+                 use_checkpoint, prompt_tuning_config=None):
 
         super().__init__()
         self.fp16_enabled = False
@@ -117,9 +117,11 @@ class TransformerStage(nn.Module):
                         fixed_pe,
                         ksize,
                         log_cpb,
-                        stage_i
+                        stage_i,
+                        prompt_tuning_config
                     )
                 )
+
             elif stage_spec[i] == 'S':
                 shift_size = math.ceil(window_size / 2)
                 self.attns.append(

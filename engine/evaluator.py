@@ -87,7 +87,7 @@ class Evaluator:
             correct += d["correct"]
             labeled += d["labeled"]
             count += 1
-
+    
         iou, mean_IoU, _, freq_IoU, mean_pixel_acc, pixel_acc = compute_score(
             hist, correct, labeled)
         result_line = print_iou(

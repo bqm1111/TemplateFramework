@@ -161,6 +161,7 @@ class WindowAttention(nn.Module):
             slice(-self.shift_size, None),
         )
         cnt = 0
+        
         for h in h_slices:
             for w in w_slices:
                 img_mask[:, h, w, :] = cnt

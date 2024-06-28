@@ -16,6 +16,7 @@ import torch.nn.functional as F
 import einops
 # from mmcv.runner import auto_fp16
 from timm.models.layers import to_2tuple, trunc_normal_
+from models.net_utils import MFA
 
 
 class LocalAttention(nn.Module):
@@ -35,7 +36,6 @@ class LocalAttention(nn.Module):
         self.window_size = window_size
         self.proj_drop = nn.Dropout(proj_drop, inplace=True)
         self.attn_drop = nn.Dropout(attn_drop, inplace=True)
-
         Wh, Ww = self.window_size
         self.relative_position_bias_table = nn.Parameter(
             torch.zeros((2 * Wh - 1) * (2 * Ww - 1), heads)
@@ -286,7 +286,7 @@ class DAttentionBaseline(nn.Module):
         self, q_size, kv_size, n_heads, n_head_channels, n_groups,
         attn_drop, proj_drop, stride,
         offset_range_factor, use_pe, dwc_pe,
-        no_off, fixed_pe, ksize, log_cpb, stage_i
+        no_off, fixed_pe, ksize, log_cpb, stage_i, prompt_tuning_config=None
     ):
 
         super().__init__()
@@ -309,8 +309,14 @@ class DAttentionBaseline(nn.Module):
         self.ksize = ksize
         self.stride = stride
         self.log_cpb = log_cpb
+        self.pt_config = prompt_tuning_config
+        if self.pt_config:
+            self.mfa = MFA(prompt_tuning_config["num_token"], prompt_tuning_config["token_dim"],
+                           prompt_tuning_config["reduction_ratio"],
+                           n_heads, n_head_channels, True)
         kk = self.ksize
         pad_size = kk // 2 if kk != stride else 0
+
         self.conv_offset = nn.Sequential(
             nn.Conv2d(self.n_group_channels, self.n_group_channels,
                       kk, stride, pad_size, groups=self.n_group_channels),
@@ -318,6 +324,7 @@ class DAttentionBaseline(nn.Module):
             nn.GELU(),
             nn.Conv2d(self.n_group_channels, 2, 1, 1, 0, bias=False)
         )
+
         if self.no_off:
             for m in self.conv_offset.parameters():
                 m.requires_grad_(False)
@@ -409,7 +416,8 @@ class DAttentionBaseline(nn.Module):
 
         B, C, H, W = x.size()
         dtype, device = x.dtype, x.device
-
+        if self.pt_config:
+            aux_q = self.mfa(x)
         q = self.proj_q(x)
         q_off = einops.rearrange(
             q, 'b (g c) h w -> (b g) c h w', g=self.n_groups, c=self.n_group_channels)
@@ -502,18 +510,18 @@ class DAttentionBaseline(nn.Module):
         attn = self.attn_drop(attn)
 
         out = torch.einsum('b m n, b c n -> b c m', attn, v)
+        if self.pt_config:
+            out = out + aux_q
 
         if self.use_pe and self.dwc_pe:
             out = out + residual_lepe
         out = out.reshape(B, C, H, W)
 
         y = self.proj_drop(self.proj_out(out))
-
         return y, None, None
 
 
 class PyramidAttention(nn.Module):
-
     def __init__(self, dim, num_heads=8, attn_drop=0., proj_drop=0., sr_ratio=1):
 
         super().__init__()

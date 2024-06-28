@@ -66,7 +66,7 @@ class NeighborhoodAttention2D(nn.Module):
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
         self.proj_drop = nn.Dropout(proj_drop)
-
+    
     # @auto_fp16(apply_to=('x', ))
     def forward(self, x):
         # assert x.dtype == torch.float16, f"AMP failed!, dtype={x.dtype}"
@@ -96,5 +96,4 @@ class NeighborhoodAttention2D(nn.Module):
         x = x.permute(0, 2, 3, 1, 4).reshape(B, H, W, C)
         if pad_r or pad_b:
             x = x[:, :Hp, :Wp, :]
-
         return self.proj_drop(self.proj(x)).permute(0, 3, 1, 2), None, None
