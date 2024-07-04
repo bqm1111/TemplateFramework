@@ -37,7 +37,7 @@ def main(rank, world_size, config):
             num_workers=train_cfg.num_workers,
             drop_last=train_cfg.drop_last,
         )
-        train_cfg.gpu = rank
+        train_cfg.device = rank
         torch.cuda.set_device(rank)
 
     else:
@@ -67,7 +67,7 @@ def main(rank, world_size, config):
         params=opt_params,
         lr=train_cfg.opt_params.lr_default,
         momentum=train_cfg.opt_params.momentum,
-        weight_decay=train_cfg.opt_params.wd_default,
+        weight_decay=train_cfg.opt_params.wd_default
     )
     scheduler = get_scheduler(
         optimizer=optimizer, lr_scheduler=train_cfg.scheduler_name

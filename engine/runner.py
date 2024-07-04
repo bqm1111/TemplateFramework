@@ -60,14 +60,12 @@ class BaseRunner():
         if train_cfg.log_dir is not None:
             self.log_writer = SummaryWriter(log_dir=os.path.join(
                 train_cfg.log_dir, self.cfg.experiment_type, self.cfg.experiment_dataset, self.cfg.experiment_name))
-        if "gpu" in train_cfg:
-            self.model.to(train_cfg.gpu)
-        else:
-            self.model.to(self.device)
+        
+        self.model.to(self.device)
         self.model_without_ddp = self.model
         if train_cfg.distributed:
             self.model = torch.nn.parallel.DistributedDataParallel(
-                self.model, device_ids=[train_cfg.gpu], find_unused_parameters=False)
+                self.model, device_ids=[train_cfg.device], find_unused_parameters=False)
             self.model_without_ddp = self.model.module
 
         start_epoch = 1
@@ -211,14 +209,10 @@ class SemSegRunner(BaseRunner):
         cfg = self.train_cfg
         sum_loss = 0
         for data_iter_step, samples in enumerate(self.train_loader):
-            if "gpu" in cfg:
-                rgb = samples["rgb"].to(cfg.gpu)
-                depth = samples["depth"].to(cfg.gpu)
-                label = samples["label"].to(cfg.gpu)
-            else:
-                rgb = samples["rgb"].to(cfg.device)
-                depth = samples["depth"].to(cfg.device)
-                label = samples["label"].to(cfg.device)
+
+            rgb = samples["rgb"].to(cfg.device)
+            depth = samples["depth"].to(cfg.device)
+            label = samples["label"].to(cfg.device)
 
 
             loss = self.model(rgb, depth, label)

@@ -14,7 +14,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import einops
-# from mmcv.runner import auto_fp16
+
 from timm.models.layers import to_2tuple, trunc_normal_
 from models.net_utils import MFA
 
@@ -410,7 +410,7 @@ class DAttentionBaseline(nn.Module):
             B * self.n_groups, -1, -1, -1)  # B * g H W 2
 
         return ref
-
+    
     # @auto_fp16(apply_to=('x', ))
     def forward(self, x):
 

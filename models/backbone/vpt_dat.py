@@ -52,7 +52,9 @@ class VPT_DAT(nn.Module):
                  out_indices=(0, 1, 2, 3),
                  use_checkpoint=True,
                  pretrained=None,
-                 prompt_tuning_config=False,
+                 prompt_tuning_config=True,
+                 use_deformable=True,
+                 freeze_backbone=True,
                  **kwargs
                  ):
         super().__init__()
@@ -62,7 +64,11 @@ class VPT_DAT(nn.Module):
         self.log_cpb = log_cpb[0]
         self.dwc_pe = dwc_pes[0]
         self.slide = stage_spec[0][0] == "E"
-
+        self.use_deformable = use_deformable
+        self.freeze_backbone = freeze_backbone
+        logger.info(f"pt_config = {prompt_tuning_config}")
+        logger.info(f"use_deformable = {use_deformable}")
+        logger.info(f"freeze_backbone = {freeze_backbone}")
         self.patch_proj = nn.Sequential(
             nn.Conv2d(3, dim_stem // 2, 3, patch_size // 2, 1),
             LayerNormProxy(dim_stem // 2),
@@ -175,21 +181,23 @@ class VPT_DAT(nn.Module):
         if isinstance(pretrained, str):
             load_dat_pretrained_model(self, pretrained)
             logger.info("DAT backbone has been loaded successfully!")
-        for name, param in self.named_parameters():
-            if "mfa" in name or "mpg" in name:
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
+        
+        if self.freeze_backbone:
+            for name, param in self.named_parameters():
+                if "mfa" in name or "mpg" in name:
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
 
     def build_MPG(self):
         layers = nn.ModuleList()
         for i in range(4):
             if i == 0:
                 layer = MPG(self.dims[i], self.dims[i],
-                            None, None, None, 1, False)
+                            None, None, None, 1, False, use_deformable=self.use_deformable)
             else:
                 layer = MPG(self.dims[i-1], self.dims[i],
-                            kernel_size=3, stride=2, padding=1)
+                            kernel_size=3, stride=2, padding=1, use_deformable=self.use_deformable)
             layers.append(layer)
 
         return layers
@@ -212,13 +220,19 @@ class VPT_DAT(nn.Module):
 
 
 if __name__ == '__main__':
-    net = VPT_DAT(prompt_tuning_config=True)
-    model_file = "pretrained/upn_dat_s_160k.pth"
-    state_dict = torch.load(model_file)["state_dict"]
+    def count_parameters(model):
+        return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    # 
+    net = VPT_DAT(prompt_tuning_config=True, freeze_backbone=True)
     net.init_weights(None)
-    for name, param in net.named_parameters():
-        if param.requires_grad is True:
-            print(name)
+    print(count_parameters(net))
+
+    # model_file = "pretrained/upn_dat_s_160k.pth"
+    # state_dict = torch.load(model_file)["state_dict"]
+    # net.init_weights(None)
+    # for name, param in net.named_parameters():
+    #     if param.requires_grad is True:
+    #         print(name)
     # load_dat_pretrained_model(net, model_file)
     # for _, name in net.parameters():
     #     print(param)

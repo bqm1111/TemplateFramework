@@ -3,9 +3,11 @@ import torch.nn as nn
 
 from timm.models.layers import trunc_normal_
 import math
-
+import torchvision
 
 # Feature Rectify Module
+
+
 class ChannelWeights(nn.Module):
     def __init__(self, dim, reduction=1):
         super(ChannelWeights, self).__init__()
@@ -203,12 +205,71 @@ class FeatureFusionModule(nn.Module):
         return merge
 
 
+class DeformableConv2d(nn.Module):
+    def __init__(self,
+                 in_channels,
+                 out_channels,
+                 kernel_size=3,
+                 stride=2,
+                 padding=1,
+                 bias=False):
+
+        super(DeformableConv2d, self).__init__()
+
+        self.padding = padding
+        self.stride = stride
+        self.offset_conv = nn.Conv2d(in_channels,
+                                     2 * kernel_size * kernel_size,
+                                     kernel_size=kernel_size,
+                                     stride=stride,
+                                     padding=self.padding,
+                                     bias=True)
+
+        nn.init.constant_(self.offset_conv.weight, 0.)
+        nn.init.constant_(self.offset_conv.bias, 0.)
+
+        self.modulator_conv = nn.Conv2d(in_channels,
+                                        1 * kernel_size * kernel_size,
+                                        kernel_size=kernel_size,
+                                        stride=stride,
+                                        padding=self.padding,
+                                        bias=True)
+
+        nn.init.constant_(self.modulator_conv.weight, 0.)
+        nn.init.constant_(self.modulator_conv.bias, 0.)
+
+        self.regular_conv = nn.Conv2d(in_channels=in_channels,
+                                      out_channels=out_channels,
+                                      kernel_size=kernel_size,
+                                      stride=stride,
+                                      padding=self.padding,
+                                      bias=bias)
+
+    def forward(self, x):
+        h, w = x.shape[2:]
+        max_offset = max(h, w)/4.
+
+        offset = self.offset_conv(x).clamp(-max_offset, max_offset)
+        modulator = 2. * torch.sigmoid(self.modulator_conv(x))
+
+        x = torchvision.ops.deform_conv2d(input=x,
+                                          offset=offset,
+                                          weight=self.regular_conv.weight,
+                                          bias=self.regular_conv.bias,
+                                          stride=self.stride,
+                                          padding=self.padding,
+                                          mask=modulator
+                                          )
+        return x
+
+
 class MPG(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, reduction=1, need_depth_embedding=True) -> None:
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, reduction=1, need_depth_embedding=True, use_deformable=False) -> None:
         super().__init__()
         self.need_depth_embedding = need_depth_embedding
+        conv = DeformableConv2d if use_deformable else nn.Conv2d
         if need_depth_embedding:
-            self.depth_embedding = nn.Conv2d(
+            self.depth_embedding = conv(
                 in_channels, out_channels, kernel_size=kernel_size, stride=stride, padding=padding)
         self.FRM = FeatureRectifyModule(out_channels, reduction=reduction)
 
@@ -223,7 +284,7 @@ class MFA(nn.Module):
     """Multimodal feature adapter
 
     """
-    
+
     def __init__(self, num_token, token_dim, reduction_ratio, num_heads, num_head_channels, qkv_bias=True) -> None:
         super().__init__()
         in_query_dim = num_heads * num_head_channels
@@ -250,7 +311,7 @@ class MFA(nn.Module):
 
         self.proj_up = nn.Linear(
             reduction_dim, in_query_dim)
-    
+
     def forward(self, query):
         """
         In DAttetionBaseline
@@ -258,25 +319,27 @@ class MFA(nn.Module):
         In Neighborhood Attention
         TBD
         """
-        print(query.shape)
         B, C, H, W = query.shape
-        query = query.reshape(B, C, H * W).permute(0, 2, 1)
+        query = query.reshape(B, C, H * W).permute(0, 2, 1).contiguous()
 
         token_kv = self.linear_kv(self.norm(self.adapter_token.weight)).reshape(
-            self.num_token, 2, -1).permute(1, 0, 2)  # 2 * N * C/theta
+            self.num_token, 2, -1).permute(1, 0, 2).contiguous()  # 2 * N * C/theta
         token_k, token_v = token_kv.unbind(0)
         reduction_q = self.linear_q(query)
         q = self.q_proj(reduction_q)
         v = self.v_proj(token_v)
         k = self.k_proj(token_k)
-        attn = torch.softmax(q @ k.t() / math.sqrt(self.channel_per_head_reduce), dim=-1) @ v
+        attn = torch.softmax(
+            q @ k.t() / math.sqrt(self.channel_per_head_reduce), dim=-1) @ v
 
         out = self.proj_up(attn)
-        out = out.permute(0, 2, 1).view(B, self.num_heads, self.num_head_channels, -1)
-        out = out.reshape(B * self.num_heads, self.num_head_channels, -1)
+        out = out.permute(0, 2, 1).contiguous().view(
+            B, self.num_heads, self.num_head_channels, -1)
+        out = out.reshape(B * self.num_heads,
+                          self.num_head_channels, -1).contiguous()
 
         return out
-        
+
 
 if __name__ == '__main__':
 

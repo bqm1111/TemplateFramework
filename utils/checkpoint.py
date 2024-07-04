@@ -219,7 +219,7 @@ def load_dual_dat_pretrained_model(model, model_file):
             state_dict[new_key] = value
             state_dict[depth_key] = value
 
-    model.load_state_dict(state_dict, strict=True)
+    model.load_state_dict(state_dict, strict=False)
     del state_dict
     logger.info("Successfully load DAT++ pretrained model")
 

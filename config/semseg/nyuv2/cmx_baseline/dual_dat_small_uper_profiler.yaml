@@ -1,0 +1,150 @@
+experiment_type: "semseg"
+experiment_dataset: "nyuv2"
+experiment_name: "dual_swin_small_dat_uper_profiler"
+
+# Model
+model:
+  name: "encoder_decoder"
+  params:
+    backbone:
+      name: "dat_s"
+      params:
+        frozen_stages: -1
+        from_mae: False
+    decoder:
+      name: "uper"
+      params:
+        in_channels: [96, 192, 384, 768]
+        num_classes: 40
+        channels: 512
+    aux_head: 
+      name: "fcn"
+      params:
+        in_channels: 384
+        num_classes: 40
+    norm_layer: "BatchNorm2d"
+    pretrained: pretrained/upn_dat_s_160k.pth
+    train_cfg:
+      aux_index: 2
+      aux_rate: 0.4
+      bn_eps: 1e-3
+      bn_momentum: 0.1
+
+train:
+  experiment_name: "semseg"
+  # Runner
+  runner_name: semseg
+  distributed: False
+  device: cuda
+  resume: ~
+
+  # Train config
+  batch_size: 8
+  num_workers: 0
+  drop_last: True
+  lr: 6e-5
+  lr_power: 0.9
+  momentum: 0.9
+  weight_decay: 0.01
+  num_epochs: 1
+  warmup_epoch: 10
+  train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
+  saving_interval: 10
+  start_saving_epoch: 300
+
+  # Dataset
+  dataset:
+    name: "nyuv2"
+    params:
+      root: "data/NYUDepthv2"
+      split: "train_tiny"
+      need_label: True
+      need_depth_anything: False
+    common_transforms:
+      semseg_transform:
+        params:
+          size: [480, 640]
+          train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
+
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # nyuv2
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+    depth_transforms:
+      to_tensor:
+        params: ~
+      # normalize:
+      #   params:
+      #     # nyuv2 depth
+      #     mean: [0.3786, 0.3786, 0.3786]
+      #     std: [0.3205, 0.3205, 0.3205]
+
+    target_transforms: ~
+    label_transforms:
+      to_tensor:
+        params: ~
+
+  # Losses
+  losses: ~
+
+  # Optimizer
+  opt_params:
+    lr_default: 1.5e-04
+    wd_default: 0.01
+    betas: (0.9, 0.999)
+    momentum: ~
+    lr_list: ~
+    group_keys: ~
+    wd_list: ~
+
+  opt_name: "adamw"
+  scheduler_name: "constant"
+  # Logger
+  use_tensorboard: True
+  tensorboard_folder:
+  log_dir: log/
+  output_dir: output_dir/
+  model_folder: ~
+
+val:
+  batch_size: 1
+  background: 255
+  log_dir: log/eval/
+  save_path: ~
+  show_image: True
+  dataset:
+    name: "nyuv2"
+    params:
+      root: "data/NYUDepthv2"
+      split: "test"
+      need_label: True
+      need_depth_anything: False
+
+    common_transforms: ~
+    transforms:
+      to_tensor:
+        params: ~
+      normalize:
+        params:
+          # nyuv2
+          mean: [0.485, 0.456, 0.406]
+          std: [0.229, 0.224, 0.225]
+    depth_transforms:
+      to_tensor:
+        params: ~
+      # normalize:
+      #   params:
+      #     # nyuv2 depth
+      #     mean: [0.3786, 0.3786, 0.3786]
+      #     std: [0.3205, 0.3205, 0.3205]
+
+    target_transforms: ~
+    label_transforms:
+      to_tensor:
+        params: ~
+test:
+  need_test: False

@@ -1,6 +1,6 @@
 experiment_type: "semseg"
 experiment_dataset: "nyuv2"
-experiment_name: "vpt_dat_s_full_finetune"
+experiment_name: "vpt_dat_s_full_finetune_lr4e2_wd_5e4_freeze_backbone"
 
 # Model
 model:
@@ -9,8 +9,10 @@ model:
     backbone:
       name: "vpt_dat_s"
       params:
-        frozen_stages: -1
-        from_mae: False
+        prompt_tuning_config: True
+        use_deformable: False
+        freeze_backbone: True
+  
     decoder:
       name: "uper"
       params:
@@ -42,15 +44,15 @@ train:
   batch_size: 8
   num_workers: 16
   drop_last: True
-  lr: 6e-5
+  lr: 4e-2
   lr_power: 0.9
   momentum: 0.9
-  weight_decay: 0.01
-  num_epochs: 500
+  weight_decay: 5e-4
+  num_epochs: 400
   warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
   saving_interval: 10
-  start_saving_epoch: 250
+  start_saving_epoch: 150
 
   # Dataset
   dataset:
@@ -93,8 +95,8 @@ train:
 
   # Optimizer
   opt_params:
-    lr_default: 1.5e-04
-    wd_default: 0.01
+    lr_default: 4e-2
+    wd_default: 5.0e-4
     betas: (0.9, 0.999)
     momentum: ~
     lr_list: ~

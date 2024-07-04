@@ -1,0 +1,1 @@
+python -m torch.utils.bottleneck train.py --config config/semseg/nyuv2/cmx_baseline/dual_dat_small_uper_profiler.yaml
