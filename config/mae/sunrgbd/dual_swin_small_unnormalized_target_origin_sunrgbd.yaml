@@ -40,8 +40,6 @@ train:
     params:
       root: "data/sunrgbd_trainval"
       split: "train"
-      need_label: False
-      need_depth_anything: False
 
     common_transforms:
       random_resized_crop:

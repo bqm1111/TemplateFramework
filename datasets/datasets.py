@@ -1,11 +1,10 @@
-from doctest import FAIL_FAST
 import cv2
 import numpy as np
 from torch.utils.data import Dataset
 import os
 from PIL import Image
 from utils.logger import get_root_logger
-from utils.helper import convert_depth_to_image
+from utils.helper import convert_depth_to_three_channel_img, darken
 
 logger = get_root_logger()
 
@@ -15,32 +14,28 @@ class DepthDataset(Dataset):
         self,
         root,
         split,
-        need_label,
-        need_depth_anything,
-        need_fill_invalid=False,
+        lowlight=False,
         transforms=None,
-        target_transforms=None,
         depth_transforms=None,
-        label_transforms=None,
         common_transforms=None,
     ):
+        self.CLASSES = []
+        self.update_classname()
         self.dataset_name = None
         self.root_dir = root
         self.split = split
+        self.lowlight = lowlight
         self.transforms = transforms
-        self.target_tranforms = target_transforms
         self.depth_transforms = depth_transforms
-        self.label_transforms = label_transforms
         self.common_transforms = common_transforms
-        self.rgb_path = os.path.join(self.root_dir, "image")
+        if lowlight:
+            self.rgb_path = os.path.join(self.root_dir, "dark")
+        else:
+            self.rgb_path = os.path.join(self.root_dir, "image")
         self.depth_path = os.path.join(self.root_dir, "depth")
         self.label_path = os.path.join(self.root_dir, "seglabel")
-        self.raw_depth_anything_path = os.path.join(
-            self.root_dir, "rawDepthAnything")
-        self.need_label = need_label
-        self.need_depth_anything = need_depth_anything
-        self.need_fill_invalid = need_fill_invalid
         all_index_file = os.path.join(self.root_dir, split + ".txt")
+
         if not os.path.exists(all_index_file):
             raise Exception(f"File does not exist {all_index_file}")
 
@@ -50,50 +45,38 @@ class DepthDataset(Dataset):
     def __getitem__(self, index):
         output = {}
         file_index = self.all_index[index]
+
         if self.dataset_name == "nyuv2":
             file_index = str(file_index)
         elif self.dataset_name == "sunrgbd":
             file_index = str(file_index).zfill(6)
         else:
             raise NotImplementedError
-        # Read all necessary types of image (rgb, depth, depth_anything, raw_depth)
-        rgb = Image.open(
-            os.path.join(self.rgb_path, file_index + ".jpg")
-        ).convert("RGB")
+        # Read all necessary types of image
+        rgb = Image.open(os.path.join(self.rgb_path, file_index + ".jpg")).convert(
+            "RGB"
+        )
+        if self.lowlight:
+            rgb = darken(rgb)
+
         if self.dataset_name == "nyuv2":
-            depth = np.load(os.path.join(
-                self.depth_path, file_index + ".npy"))
+            depth = np.load(os.path.join(self.depth_path, file_index + ".npy"))
         elif self.dataset_name == "sunrgbd":
-            depth = np.array(Image.open(os.path.join(
-                self.depth_path, file_index + ".png")))
-        if self.need_fill_invalid:
-            mask = np.where(depth == 0, 0, 1)
+            depth = np.array(
+                Image.open(os.path.join(self.depth_path, file_index + ".png"))
+            )
 
-
-        if self.need_depth_anything:
-            raw_depth_anything = np.load(os.path.join(
-                self.raw_depth_anything_path, file_index + ".npy"))
-            if self.need_fill_invalid:
-                invalid_filled_depth = depth + (1 - mask) * raw_depth_anything
-                invalid_filled_depth = convert_depth_to_image(invalid_filled_depth)
-            raw_depth_anything = convert_depth_to_image(
-                raw_depth_anything)
-            raw_depth_anything = Image.fromarray(raw_depth_anything)
-            output["depth_anything"] = raw_depth_anything
-
-        depth = convert_depth_to_image(depth)
+        depth = convert_depth_to_three_channel_img(depth)
         depth = Image.fromarray(depth)
         output["rgb"] = rgb
-        if self.need_fill_invalid:
-            output["depth"] = invalid_filled_depth
-        else:
-            output["depth"] = depth
-        if self.need_label:
-            label = cv2.imread(os.path.join(
-                self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE)
-            label = label - 1
-            output["label"] = label
+        output["depth"] = depth
 
+        label = cv2.imread(
+            os.path.join(self.label_path, file_index + ".png"), cv2.IMREAD_GRAYSCALE
+        )
+        label = label - 1
+        output["label"] = label
+        
         if self.common_transforms is not None:
             output = self.common_transforms(**output)
 
@@ -104,15 +87,20 @@ class DepthDataset(Dataset):
         if self.depth_transforms is not None:
             output["depth"] = self.depth_transforms(output["depth"])
 
-        if self.target_tranforms is not None:
-            output["depth_anything"] = self.target_tranforms(
-                output["depth_anything"])
-
         # Return output as a dictionary
         if rgb is None and depth is None:
             logger.error("Receive NoneType")
 
         return output
+
+    def get_classname(self):
+        return self.CLASSES
+
+    def num_classes(self):
+        return len(self.CLASSES)
+
+    def update_classname(self):
+        raise NotImplementedError
 
     def __len__(self):
         return len(self.all_index)
@@ -123,28 +111,65 @@ class NYUv2Dataset(DepthDataset):
         self,
         root,
         split,
-        need_label,
-        need_depth_anything,
-        need_fill_invalid=False,
+        lowlight=False,
         transforms=None,
-        target_transforms=None,
         depth_transforms=None,
-        label_transforms=None,
         common_transforms=None,
     ):
         super(NYUv2Dataset, self).__init__(
             root,
             split,
-            need_label,
-            need_depth_anything,
-            need_fill_invalid,
+            lowlight,
             transforms,
-            target_transforms,
             depth_transforms,
-            label_transforms,
             common_transforms,
         )
+
         self.dataset_name = "nyuv2"
+
+    def update_classname(self):
+        self.CLASSES = [
+            "wall",
+            "floor",
+            "cabinet",
+            "bed",
+            "chair",
+            "sofa",
+            "table",
+            "door",
+            "window",
+            "bookshelf",
+            "picture",
+            "counter",
+            "blinds",
+            "desk",
+            "shelves",
+            "curtain",
+            "dresser",
+            "pillow",
+            "mirror",
+            "floor mat",
+            "clothes",
+            "ceiling",
+            "books",
+            "refridgerator",
+            "television",
+            "paper",
+            "towel",
+            "shower curtain",
+            "box",
+            "whiteboard",
+            "person",
+            "night stand",
+            "toilet",
+            "sink",
+            "lamp",
+            "bathtub",
+            "bag",
+            "otherstructure",
+            "otherfurniture",
+            "otherprop",
+        ]
 
 
 class SunRGBDDataset(DepthDataset):
@@ -152,30 +177,58 @@ class SunRGBDDataset(DepthDataset):
         self,
         root,
         split,
-        need_label,
-        need_depth_anything,
-        need_fill_invalid=False,
+        lowlight=False,
         transforms=None,
-        target_transforms=None,
         depth_transforms=None,
-        label_transforms=None,
         common_transforms=None,
     ):
         super(SunRGBDDataset, self).__init__(
             root,
             split,
-            need_label,
-            need_depth_anything,
-            need_fill_invalid,
+            lowlight,
             transforms,
-            target_transforms,
             depth_transforms,
-            label_transforms,
             common_transforms,
         )
         self.dataset_name = "sunrgbd"
 
-
-if __name__ == "__main__":
-    raw = np.load("data/sunrgbd_trainval/rawDepthAnything/000128.npy")
-    print(raw)
+    def update_classname(self):
+        self.CLASSES = [
+            "wall",
+            "floor",
+            "cabinet",
+            "bed",
+            "chair",
+            "sofa",
+            "table",
+            "door",
+            "window",
+            "bookshelf",
+            "picture",
+            "counter",
+            "blinds",
+            "desk",
+            "shelves",
+            "curtain",
+            "dresser",
+            "pillow",
+            "mirror",
+            "floor mat",
+            "clothes",
+            "ceiling",
+            "books",
+            "fridge",
+            "tv",
+            "paper",
+            "towel",
+            "shower curtain",
+            "box",
+            "whiteboard",
+            "person",
+            "night stand",
+            "toilet",
+            "sink",
+            "lamp",
+            "bathtub",
+            "bag",
+        ]

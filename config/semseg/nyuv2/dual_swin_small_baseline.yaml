@@ -42,7 +42,7 @@ train:
   warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
   saving_interval: 10
-  start_saving_epoch: 300
+  start_saving_epoch: 200
 
   # Dataset
   dataset:
@@ -50,12 +50,10 @@ train:
     params:
       root: "data/NYUDepthv2"
       split: "train"
-      need_label: True
-      need_depth_anything: False
     common_transforms:
       semseg_transform:
         params:
-          size: [480, 640]
+          crop_size: [480, 640]
           train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
 
     transforms:
@@ -113,8 +111,6 @@ val:
     params:
       root: "data/NYUDepthv2"
       split: "test"
-      need_label: True
-      need_depth_anything: False
 
     common_transforms: ~
     transforms:

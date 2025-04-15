@@ -4,13 +4,18 @@ from .backbone.dual_swin_semseg import (
     dual_swin_semseg_t,
 )
 from .decoders import MLPDecoderHead, DeepLabV3Plus, UPerHead, FCNHead
-from .backbone.dual_dat import Dual_DAT
+from .backbone.dual_dat import dual_dat_b, dual_dat_s, dual_dat_t
+from .backbone.dual_segformer import mit_b2
 AVAI_BACKBONE = {
     "swin_s": dual_swin_semseg_s,
     "swin_b": dual_swin_semseg_b,
     "swin_t": dual_swin_semseg_t,
-    "dat_s": Dual_DAT
+    "dat_s": dual_dat_s,
+    "dat_b": dual_dat_b,
+    "dat_t": dual_dat_t,
+    "mit_b2": mit_b2
 }
+
 AVAI_DECODER = {
     "mlp": MLPDecoderHead,
     "uper": UPerHead,

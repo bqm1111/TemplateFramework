@@ -17,6 +17,7 @@ if __name__ == "__main__":
         num_workers=config.num_workers,
         drop_last=config.drop_last,
     )
+# 
     psum = defaultdict(lambda: torch.tensor([0.0, 0.0, 0.0]))
     psum_sq = defaultdict(lambda: torch.tensor([0.0, 0.0, 0.0]))
     count = defaultdict(lambda: 0)

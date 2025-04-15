@@ -23,7 +23,7 @@ if __name__ == '__main__':
                                    config.experiment_name, "checkpoint-" + str(args.epoch) + ".pth")
     segmentor = Evaluator(config, model, args.show)
     best_iou = 0
-    for epoch in range(30, 45):
+    for epoch in range(40, 51):
         checkpoint_path =  os.path.join("output_dir/", config.experiment_type, config.experiment_dataset,
                                    config.experiment_name, "checkpoint-" + str(epoch * 10) + ".pth")
         iou = segmentor.run(checkpoint_path)

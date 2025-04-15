@@ -32,13 +32,14 @@ from torch.nn.functional import pad
 from torch.nn.init import trunc_normal_
 # from mmcv.runner import auto_fp16
 
-from natten.functional import NATTEN2DQKRPBFunction, NATTEN2DAVFunction
+from natten.functional import na2d_qk, na2d_av
 
 
 class NeighborhoodAttention2D(nn.Module):
     """
     Neighborhood Attention 2D Module
     """
+
     def __init__(self, dim, kernel_size, num_heads, attn_drop=0., proj_drop=0.,
                  dilation=None):
         super().__init__()
@@ -61,7 +62,8 @@ class NeighborhoodAttention2D(nn.Module):
             self.window_size = self.kernel_size * self.dilation
 
         self.qkv = nn.Linear(dim, dim * 3)
-        self.rpb = nn.Parameter(torch.zeros(num_heads, (2 * kernel_size - 1), (2 * kernel_size - 1)))
+        self.rpb = nn.Parameter(torch.zeros(
+            num_heads, (2 * kernel_size - 1), (2 * kernel_size - 1)))
         trunc_normal_(self.rpb, std=.02, mean=0., a=-2., b=2.)
         self.attn_drop = nn.Dropout(attn_drop)
         self.proj = nn.Linear(dim, dim)
@@ -85,16 +87,17 @@ class NeighborhoodAttention2D(nn.Module):
             pad_b = max(0, window_size - H)
             x = pad(x, (0, 0, pad_l, pad_r, pad_t, pad_b))
             _, H, W, _ = x.shape
-        qkv = self.qkv(x).reshape(B, H, W, 3, self.num_heads, self.head_dim).permute(3, 0, 4, 1, 2, 5)
+        qkv = self.qkv(x).reshape(B, H, W, 3, self.num_heads,
+                                  self.head_dim).permute(3, 0, 4, 1, 2, 5)
         q, k, v = qkv[0], qkv[1], qkv[2]
         q = q * self.scale
         # breakpoint()
-        attn = NATTEN2DQKRPBFunction.apply(q, k, self.rpb, self.kernel_size, dilation)
+        attn = na2d_qk(
+            q, k, self.kernel_size, dilation, rpb=self.rpb)
         attn = attn.softmax(dim=-1)
         attn = self.attn_drop(attn)
-        x = NATTEN2DAVFunction.apply(attn, v, self.kernel_size, dilation)
+        x = na2d_av(attn, v, self.kernel_size, dilation)
         x = x.permute(0, 2, 3, 1, 4).reshape(B, H, W, C)
         if pad_r or pad_b:
             x = x[:, :Hp, :Wp, :]
-
         return self.proj_drop(self.proj(x)).permute(0, 3, 1, 2), None, None

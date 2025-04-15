@@ -1,6 +1,6 @@
 experiment_type: "semseg"
 experiment_dataset: "nyuv2"
-experiment_name: "dual_swin_small_dat_uper"
+experiment_name: "dual_dat_small_uper"
 
 # Model
 model:
@@ -36,7 +36,7 @@ train:
   runner_name: semseg
   distributed: False
   device: cuda
-  resume: ~
+  resume: output_dir/semseg/nyuv2/dual_dat_small_uper/checkpoint-400.pth
 
   # Train config
   batch_size: 8
@@ -50,7 +50,7 @@ train:
   warmup_epoch: 10
   train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
   saving_interval: 10
-  start_saving_epoch: 300
+  start_saving_epoch: 400
 
   # Dataset
   dataset:
@@ -58,12 +58,10 @@ train:
     params:
       root: "data/NYUDepthv2"
       split: "train"
-      need_label: True
-      need_depth_anything: False
     common_transforms:
       semseg_transform:
         params:
-          size: [480, 640]
+          crop_size: [480, 640]
           train_scale_array: [0.5, 0.75, 1, 1.25, 1.5, 1.75]
 
     transforms:
@@ -114,15 +112,13 @@ val:
   batch_size: 1
   background: 255
   log_dir: log/eval/
-  save_path: ~
+  save_path: results
   show_image: True
   dataset:
     name: "nyuv2"
     params:
       root: "data/NYUDepthv2"
       split: "test"
-      need_label: True
-      need_depth_anything: False
 
     common_transforms: ~
     transforms:

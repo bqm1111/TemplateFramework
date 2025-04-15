@@ -114,7 +114,7 @@ class TransformerStage(nn.Module):
                         offset_range_factor,
                         use_pe,
                         dwc_pe,
-                        no_off,
+                        no_off,       
                         fixed_pe,
                         ksize,
                         log_cpb,
@@ -190,10 +190,10 @@ class TransformerStage(nn.Module):
             return cp.checkpoint(self._inner_forward, x)
         else:
             return self._inner_forward(x)
-
+# 
 
 class Dual_DAT(nn.Module):
-    def __init__(self, img_size=224, patch_size=4, num_classes=40, expansion=4,
+    def __init__(self, img_size=224, patch_size=4, expansion=4,
                  dim_stem=96, dims=[96, 192, 384, 768], depths=[2, 4, 18, 2],
                  heads=[3, 6, 12, 24], heads_q=[6, 12, 24, 48],
                  window_sizes=[7, 7, 7, 7],
@@ -409,11 +409,13 @@ class Dual_DAT(nn.Module):
 
         outs = []
         pos_out = []
+        ref_out = []
         for i in range(4):
             x, _, _ = self.stages[i](x)
             x_d, pos, ref = self.stages_d[i](x_d)
             if pos is not None:
                 pos_out.append(pos)
+                ref_out.append(ref)
             x, x_d = self.FRMs[i](x.contiguous(), x_d.contiguous())
             y = self.norms[i](x)
             y_d = self.norms_d[i](x_d)
@@ -423,7 +425,139 @@ class Dual_DAT(nn.Module):
                 x = self.down_projs[i](x)
                 x_d = self.down_projs_d[i](x_d)
 
-        return outs, pos_out
+        return outs, pos_out, ref_out
+class dual_dat_s(Dual_DAT):
+    def __init__(self, img_size=224, patch_size=4, expansion=4,
+                 dim_stem=96, dims=[96, 192, 384, 768], depths=[2, 4, 18, 2],
+                 heads=[3, 6, 12, 24], heads_q=[6, 12, 24, 48],
+                 window_sizes=[7, 7, 7, 7],
+                 drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.5,
+                 strides=[8, 4, 2, 1],
+                 offset_range_factor=[-1, -1, -1, -1],
+                 local_orf=[-1, -1, -1, -1],
+                 local_kv_sizes=[-1, -1, -1, -1],
+                 offset_pes=[False, False, False, False],
+                 stage_spec=[
+                     ["N", "D"],
+                     ["N", "D", "N", "D"],
+                     ["N", "D", "N", "D", "N", "D", "N", "D", "N",
+                      "D", "N", "D", "N", "D", "N", "D", "N", "D"],
+                     ["D", "D"]],
+                 groups=[1, 2, 3, 6],
+                 use_pes=[True, True, True, True],
+                 dwc_pes=[False, False, False, False],
+                 sr_ratios=[8, 4, 2, 1],
+                 lower_lr_kvs={},
+                 fixed_pes=[False, False, False, False],
+                 no_offs=[False, False, False, False],
+                 ns_per_pts=[4, 4, 4, 4],
+                 use_dwc_mlps=[True, True, True, True],
+                 use_conv_patches=True,
+                 ksizes=[9, 7, 5, 3],
+                 ksize_qnas=[3, 3, 3, 3],
+                 nqs=[2, 2, 2, 2],
+                 qna_activation='exp',
+                 deform_groups=[0, 0, 0, 0],
+                 nat_ksizes=[7, 7, 7, 7],
+                 layer_scale_values=[-1, -1, -1, -1],
+                 use_lpus=[True, True, True, True],
+                 use_cmt_mlps=[False, False, False, False],
+                 log_cpb=[False, False, False, False],
+                 out_indices=(0, 1, 2, 3),
+                 use_checkpoint=True,
+                 pretrained=None,
+                 **kwargs):
+        super().__init__(img_size, patch_size,  expansion, dim_stem, dims, depths, heads, heads_q, window_sizes, drop_rate, attn_drop_rate, drop_path_rate, strides, offset_range_factor, local_orf, local_kv_sizes, offset_pes, stage_spec, groups, use_pes, dwc_pes,
+                         sr_ratios, lower_lr_kvs, fixed_pes, no_offs, ns_per_pts, use_dwc_mlps, use_conv_patches, ksizes, ksize_qnas, nqs, qna_activation, deform_groups, nat_ksizes, layer_scale_values, use_lpus, use_cmt_mlps, log_cpb, out_indices, use_checkpoint, pretrained, **kwargs)
+
+
+class dual_dat_b(Dual_DAT):
+    def __init__(self, img_size=224, patch_size=4, expansion=4,
+                 dim_stem=128, dims=[128, 256, 512, 1024], depths=[2, 4, 18, 2],
+                 heads=[4, 8, 16, 32], heads_q=[6, 12, 24, 48],
+                 window_sizes=[7, 7, 7, 7],
+                 drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.7,
+                 strides=[8, 4, 2, 1],
+                 offset_range_factor=[-1, -1, -1, -1],
+                 local_orf=[-1, -1, -1, -1],
+                 local_kv_sizes=[-1, -1, -1, -1],
+                 offset_pes=[False, False, False, False],
+                 stage_spec=[["N", "D"],
+                             ["N", "D", "N", "D"],
+                             ["N", "D", "N", "D", "N", "D", "N", "D", "N",
+                              "D", "N", "D", "N", "D", "N", "D", "N", "D"],
+                             ["D", "D"]],
+                 groups=[2, 4, 8, 16],
+                 use_pes=[True, True, True, True],
+                 dwc_pes=[False, False, False, False],
+                 sr_ratios=[8, 4, 2, 1],
+                 lower_lr_kvs={},
+                 fixed_pes=[False, False, False, False],
+                 no_offs=[False, False, False, False],
+                 ns_per_pts=[4, 4, 4, 4],
+                 use_dwc_mlps=[True, True, True, True],
+                 use_conv_patches=True,
+                 ksizes=[9, 7, 5, 3],
+                 ksize_qnas=[3, 3, 3, 3],
+                 nqs=[2, 2, 2, 2],
+                 qna_activation='exp',
+                 deform_groups=[0, 0, 0, 0],
+                 nat_ksizes=[7, 7, 7, 7],
+                 layer_scale_values=[-1, -1, -1, -1],
+                 use_lpus=[True, True, True, True],
+                 use_cmt_mlps=[False, False, False, False],
+                 log_cpb=[False, False, False, False],
+                 out_indices=(0, 1, 2, 3),
+                 use_checkpoint=True,
+                 pretrained=None,
+                 **kwargs):
+        super().__init__(img_size, patch_size, expansion, dim_stem, dims, depths, heads, heads_q, window_sizes, drop_rate, attn_drop_rate, drop_path_rate, strides, offset_range_factor, local_orf, local_kv_sizes, offset_pes, stage_spec, groups, use_pes, dwc_pes,
+                         sr_ratios, lower_lr_kvs, fixed_pes, no_offs, ns_per_pts, use_dwc_mlps, use_conv_patches, ksizes, ksize_qnas, nqs, qna_activation, deform_groups, nat_ksizes, layer_scale_values, use_lpus, use_cmt_mlps, log_cpb, out_indices, use_checkpoint, pretrained, **kwargs)
+
+
+class dual_dat_t(Dual_DAT):
+    def __init__(self, img_size=224, patch_size=4, expansion=4,
+                 dim_stem=64, dims=[64, 128, 256, 512], depths=[2, 4, 18, 2],
+                 heads=[2, 4, 8, 16], heads_q=[6, 12, 24, 48],
+                 window_sizes=[7, 7, 7, 7],
+                 drop_rate=0.0, attn_drop_rate=0.0, drop_path_rate=0.3,
+                 strides=[8, 4, 2, 1],
+                 offset_range_factor=[-1, -1, -1, -1],
+                 local_orf=[-1, -1, -1, -1],
+                 local_kv_sizes=[-1, -1, -1, -1],
+                 offset_pes=[False, False, False, False],
+                 stage_spec=[
+                     ["N", "D"],
+                     ["N", "D", "N", "D"],
+                     ["N", "D", "N", "D", "N", "D", "N", "D", "N",
+                      "D", "N", "D", "N", "D", "N", "D", "N", "D"],
+                     ["D", "D"]],
+                 groups=[1, 2, 4, 8],
+                 use_pes=[True, True, True, True],
+                 dwc_pes=[False, False, False, False],
+                 sr_ratios=[8, 4, 2, 1],
+                 lower_lr_kvs={},
+                 fixed_pes=[False, False, False, False],
+                 no_offs=[False, False, False, False],
+                 ns_per_pts=[4, 4, 4, 4],
+                 use_dwc_mlps=[True, True, True, True],
+                 use_conv_patches=True,
+                 ksizes=[9, 7, 5, 3],
+                 ksize_qnas=[3, 3, 3, 3],
+                 nqs=[2, 2, 2, 2],
+                 qna_activation='exp',
+                 deform_groups=[0, 0, 0, 0],
+                 nat_ksizes=[7, 7, 7, 7],
+                 layer_scale_values=[-1, -1, -1, -1],
+                 use_lpus=[True, True, True, True],
+                 use_cmt_mlps=[False, False, False, False],
+                 log_cpb=[False, False, False, False],
+                 out_indices=(0, 1, 2, 3),
+                 use_checkpoint=True,
+                 pretrained=None,
+                 **kwargs):
+        super().__init__(img_size, patch_size, expansion, dim_stem, dims, depths, heads, heads_q, window_sizes, drop_rate, attn_drop_rate, drop_path_rate, strides, offset_range_factor, local_orf, local_kv_sizes, offset_pes, stage_spec, groups, use_pes, dwc_pes,
+                         sr_ratios, lower_lr_kvs, fixed_pes, no_offs, ns_per_pts, use_dwc_mlps, use_conv_patches, ksizes, ksize_qnas, nqs, qna_activation, deform_groups, nat_ksizes, layer_scale_values, use_lpus, use_cmt_mlps, log_cpb, out_indices, use_checkpoint, pretrained, **kwargs)
 
 
 if __name__ == '__main__':

@@ -69,7 +69,7 @@ class EncoderDecoder(nn.Module):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
         orisize = rgb.shape
-        x, reference_pos = self.backbone(rgb, modal_x)
+        x, deform_pos, ref_pos = self.backbone(rgb, modal_x)
         out = self.decoder.forward(x)
         out = F.interpolate(
             out, size=orisize[2:], mode="bilinear", align_corners=False)
@@ -78,21 +78,21 @@ class EncoderDecoder(nn.Module):
             aux_fm = F.interpolate(
                 aux_fm, size=orisize[2:], mode="bilinear", align_corners=False
             )
-            return out, aux_fm, reference_pos
-        return out, reference_pos
+            return out, aux_fm, deform_pos, ref_pos
+        return out, deform_pos, ref_pos
 
     def forward(self, rgb, modal_x, label=None):
         if self.aux_head:
-            out, aux_fm, reference_pos = self.encode_decode(rgb, modal_x)
+            out, aux_fm, deform_pos, ref_pos = self.encode_decode(rgb, modal_x)
         else:
-            out, reference_pos = self.encode_decode(rgb, modal_x)
+            out, deform_pos, ref_pos = self.encode_decode(rgb, modal_x)
         if label is not None:
             loss = self.criterion(out, label.long())
             if self.aux_head:
                 loss += self.train_cfg.aux_rate * \
                     self.criterion(aux_fm, label.long())
             return loss
-        return out, reference_pos
+        return out, deform_pos, ref_pos
 
 
 if __name__ == '__main__':

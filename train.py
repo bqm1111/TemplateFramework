@@ -14,6 +14,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     config = OmegaConf.load(args.config)
     torch.autograd.set_detect_anomaly(True)
+    torch.manual_seed(1234)
+
     train_cfg = config.train
     if "val" in config:
         val_cfg = config.val
@@ -24,7 +26,8 @@ if __name__ == "__main__":
     else:
         test_cfg = None
 
-    train_dataset = get_dataset(train_cfg.dataset)
+    train_dataset = get_dataset(config.experiment_dataset, train_cfg.dataset)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=train_cfg.batch_size,

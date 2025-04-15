@@ -1,5 +1,7 @@
 # Byte-compiled / optimized / DLL files
 pretrained/
+result/
+results/
 data
 log/
 output_dir/

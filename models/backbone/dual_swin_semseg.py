@@ -251,7 +251,7 @@ class DualSwinSemSeg(nn.Module):
                 out = self.FFMs[i](x_out, x_out_d)
 
                 outs.append(out)
-        return tuple(outs)
+        return tuple(outs), None, None
 
 
 class dual_swin_semseg_t(DualSwinSemSeg):
